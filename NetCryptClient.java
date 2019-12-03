@@ -1,6 +1,6 @@
 import java.security.spec.EncodedKeySpec;
 
-public class Client {
+public class NetCryptClient {
     public static void main(String[] args) {
         if (args.length > 0)
         {

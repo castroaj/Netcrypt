@@ -1,6 +1,6 @@
 #!/bin/bash
 rm *.class
 
-javac Client.java
+javac NetCryptClient.java
 javac Crypto.java
 javac NetCryptCmd.java
