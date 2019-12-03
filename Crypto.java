@@ -13,7 +13,7 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 
-public class CryptMachine {
+public class Crypto {
 
     public static File encryptFile(String filePath, Cipher cipher, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
     {
@@ -27,19 +27,9 @@ public class CryptMachine {
         try 
         {
             FileOutputStream outputStream = new FileOutputStream(encryptedFile);
-            FileOutputStream ivOutputStream = new FileOutputStream(new File("IV.bin"));
-            FileOutputStream keyOutputStream = new FileOutputStream(new File("key.bin"));
             FileInputStream inputStream = new FileInputStream(inputFile);
 
             cipher.init(Cipher.ENCRYPT_MODE, s_key, IV, r);
-
-            byte[] IVBytes = IV.getIV();
-            ivOutputStream.write(IVBytes);
-            System.out.println("Writing IV to file ("+IVBytes.length+" bytes)");
-
-            byte[] keyBytes = s_key.getEncoded();
-            keyOutputStream.write(keyBytes);
-            System.out.println("Writing Key to file ("+keyBytes.length+" bytes)");
 
             int curByte;
             while ((curByte = inputStream.read()) != -1)
@@ -61,8 +51,6 @@ public class CryptMachine {
             outputStream.write(encryptedBytes);
             System.out.println("Encrypted Bytes have been stored in " + encryptedFilePath + "\n");
             
-            keyOutputStream.close();
-            ivOutputStream.close();
             outputStream.close();
             inputStream.close();
         }

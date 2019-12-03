@@ -1,6 +1,6 @@
 #!/bin/bash
 rm *.class
 
-javac Driver.java
-javac CryptMachine.java
+javac Client.java
+javac Crypto.java
 javac NetCryptCmd.java
