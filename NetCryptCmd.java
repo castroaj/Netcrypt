@@ -65,9 +65,13 @@ public class NetCryptCmd {
                 System.out.println("N E T C R Y P T    S T A R T E D:");
                 System.out.println("=================================");
 
-                encryptedFile = Crypto.encryptFile(fileName, cipher, r, s_key, IV);
+                byte[] inputFileBytes = Crypto.readFile(fileName);
 
-                decryptedFile = Crypto.decryptFile(encryptedFile.getPath(), cipher, s_key, IV);
+                encryptedFile = Crypto.encryptFile(inputFileBytes, cipher, r, s_key, IV, fileName);
+
+                byte[] encryptedFileBytes = Crypto.readFile(encryptedFile.getPath());
+
+                decryptedFile = Crypto.decryptFile(encryptedFileBytes, cipher, s_key, IV, encryptedFile.getPath());
             }
             catch (Exception e)
             {

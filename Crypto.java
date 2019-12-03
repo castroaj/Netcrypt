@@ -15,44 +15,22 @@ import javax.crypto.spec.IvParameterSpec;
 
 public class Crypto {
 
-    public static File encryptFile(String filePath, Cipher cipher, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
+    public static File encryptFile(byte[] fileBytesArray, Cipher cipher, SecureRandom r, SecretKey s_key, IvParameterSpec IV, String filePath)
     {
-        // Init objects
-        File inputFile = new File(filePath);
         String encryptedFilePath = "NetCry_E-" + filePath;
         File encryptedFile = new File(encryptedFilePath);
-        ArrayList<Byte> fileBytes = new ArrayList<Byte>();
         System.out.println("\nNETCRYPT will now encrypt " + filePath);
 
         try 
         {
             FileOutputStream outputStream = new FileOutputStream(encryptedFile);
-            FileInputStream inputStream = new FileInputStream(inputFile);
-
             cipher.init(Cipher.ENCRYPT_MODE, s_key, IV, r);
-
-            int curByte;
-            while ((curByte = inputStream.read()) != -1)
-            {
-                fileBytes.add((byte) curByte);
-            }
-
-            byte[] fileBytesArray = new byte[fileBytes.size()];
-
-            System.out.println(fileBytes.size() + " bytes are being processed for encryption");
-
-            for (int i = 0; i < fileBytesArray.length; i++)
-            {
-                fileBytesArray[i] = fileBytes.get(i);
-            }
-
             byte[] encryptedBytes = cipher.doFinal(fileBytesArray);
 
             outputStream.write(encryptedBytes);
             System.out.println("Encrypted Bytes have been stored in " + encryptedFilePath + "\n");
             
             outputStream.close();
-            inputStream.close();
         }
         catch (Exception ex)
         {
@@ -62,51 +40,28 @@ public class Crypto {
         return encryptedFile;
     }
 
-    public static File decryptFile(String filePath, Cipher cipher, SecretKey s_key, IvParameterSpec IV)
+    public static File decryptFile(byte[] fileBytesArray, Cipher cipher, SecretKey s_key, IvParameterSpec IV, String filePath)
     {
-        File inputFile = new File(filePath);
         String decryptedFilePath = "NetCry_D-" + filePath.substring(9);
         File decryptedFile = new File(decryptedFilePath);
-        ArrayList<Byte> fileBytes = new ArrayList<Byte>();
         System.out.println("NETCRYPT will now decrypt " + filePath);
 
         try 
         {
             FileOutputStream outputStream = new FileOutputStream(decryptedFile);
-            FileInputStream inputStream = new FileInputStream(inputFile);
-
             cipher.init(Cipher.DECRYPT_MODE, s_key, IV);
-
-            int curByte;
-            while ((curByte = inputStream.read()) != -1)
-            {
-                fileBytes.add((byte) curByte);
-            }
-
-            byte[] fileBytesArray = new byte[fileBytes.size()];
-
-            System.out.println(fileBytes.size() + " bytes are being processed for decryption");
-
-            for (int i = 0; i < fileBytesArray.length; i++)
-            {
-                fileBytesArray[i] = fileBytes.get(i);
-            }
-
             byte[] decryptedBytes = cipher.doFinal(fileBytesArray);
 
             outputStream.write(decryptedBytes);
             System.out.println("Decrypted Bytes have been stored in " + decryptedFilePath + "\n");
 
             outputStream.close();
-            inputStream.close();
         }
         catch (Exception e)
         {
             e.printStackTrace();
         }
-
         return decryptedFile;
-
     }
 
 
@@ -136,6 +91,38 @@ public class Crypto {
 
         IvParameterSpec IV = new IvParameterSpec(byteIV);
         return IV;
+    }
+
+    public static byte[] readFile (String fileName)
+    {
+        
+        ArrayList<Byte> fileBytes = new ArrayList<Byte>();
+
+        try {
+            int curByte;
+            FileInputStream inputStream = new FileInputStream(new File(fileName));
+            
+            while ((curByte = inputStream.read()) != -1)
+            {
+                fileBytes.add((byte) curByte);
+            }
+            inputStream.close();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+
+        byte[] fileBytesArray = new byte[fileBytes.size()];
+
+        System.out.println(fileBytes.size() + " bytes are being processed for encryption");
+
+        for (int i = 0; i < fileBytesArray.length; i++)
+        {
+            fileBytesArray[i] = fileBytes.get(i);
+        }
+
+        return fileBytesArray;
     }
 
 }
