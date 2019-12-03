@@ -1,5 +1,4 @@
 #!/bin/bash
-
 rm *.class
 
 javac Driver.java
