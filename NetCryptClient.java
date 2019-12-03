@@ -9,6 +9,7 @@ public class NetCryptClient {
         else
         {
             System.err.print("Invalid number of arguments");
+            
         }
     }
 }
