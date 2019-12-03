@@ -13,53 +13,33 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 
-
-
 public class CryptMachine {
 
-    private File inputFile;
-    private File encryptedFile;
-    private String encryptedFilePath;
-   
-    private FileInputStream inputStream;
-    private FileOutputStream outputStream;
-
-    private ArrayList<Byte> fileBytes;
-    private ArrayList<Byte> encryptedFileBytes;
-
-    private SecretKey s_key;
-    private IvParameterSpec IV;
-    private Cipher cipher;
-    private SecureRandom r;
-
-    public File encryptFile(String filePath)
+    public static File encryptFile(String filePath, Cipher cipher, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
     {
         // Init objects
-        this.inputFile = new File(filePath);
-        this.encryptedFilePath = "NetCry-" + filePath;
-        this.encryptedFile = new File(encryptedFilePath);
-        this.fileBytes = new ArrayList<Byte>();
-        this.encryptedFileBytes = new ArrayList<Byte>();
+        File inputFile = new File(filePath);
+        String encryptedFilePath = "NetCry_E-" + filePath;
+        File encryptedFile = new File(encryptedFilePath);
+        ArrayList<Byte> fileBytes = new ArrayList<Byte>();
         System.out.println("\nNETCRYPT will now encrypt " + filePath);
 
         try 
         {
-            outputStream = new FileOutputStream(encryptedFile);
-            inputStream = new FileInputStream(inputFile);
+            FileOutputStream outputStream = new FileOutputStream(encryptedFile);
+            FileOutputStream ivOutputStream = new FileOutputStream(new File("IV.bin"));
+            FileOutputStream keyOutputStream = new FileOutputStream(new File("key.bin"));
+            FileInputStream inputStream = new FileInputStream(inputFile);
 
-            //Init Encryption objects
-            this.cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-            this.r = new SecureRandom();
-            this.s_key = generateKey(128);
-            this.IV = generateIV();
-            cipher.init(Cipher.ENCRYPT_MODE, this.s_key, this.IV, this.r);
+            cipher.init(Cipher.ENCRYPT_MODE, s_key, IV, r);
 
             byte[] IVBytes = IV.getIV();
+            ivOutputStream.write(IVBytes);
+            System.out.println("Writing IV to file ("+IVBytes.length+" bytes)");
 
-            for (int i = 0; i < 16; i++)
-            {
-                encryptedFileBytes.add(IVBytes[i]);
-            }
+            byte[] keyBytes = s_key.getEncoded();
+            keyOutputStream.write(keyBytes);
+            System.out.println("Writing Key to file ("+keyBytes.length+" bytes)");
 
             int curByte;
             while ((curByte = inputStream.read()) != -1)
@@ -67,56 +47,24 @@ public class CryptMachine {
                 fileBytes.add((byte) curByte);
             }
 
-            // Segment Size is 1024
-            int segmentCount = fileBytes.size() / 1024;
-            int lastSegSize = fileBytes.size() % 1024;
+            byte[] fileBytesArray = new byte[fileBytes.size()];
 
-            System.out.println("\nNETCRYPT has found "+ fileBytes.size() + " bytes\nWhich will be divided into " + segmentCount + " segments of 1024 bytes\nWith " + lastSegSize + " bytes left in the final segment");
+            System.out.println(fileBytes.size() + " bytes are being processed for encryption");
 
-            // Encrypt each segment of the file and add it to the encryptedByteArrayList
-            for (int i = 0; i < segmentCount; i++)
+            for (int i = 0; i < fileBytesArray.length; i++)
             {
-                byte[] buffer = new byte[1024];
-                int byteOffset = i * 1024;
-
-                int bIndex = 0;
-                for (int j = byteOffset; j < (byteOffset + 1024); j++)
-                {
-                    buffer[bIndex] = fileBytes.get(j);
-                    bIndex++; 
-                }
-
-                byte[] encryptedBuffer = cipher.update(buffer);
-
-                for (int a = 0; a < 1024; a++)
-                 {
-                     encryptedFileBytes.add(encryptedBuffer[a]);
-                 }
+                fileBytesArray[i] = fileBytes.get(i);
             }
 
-            //Encrypt final section of the data
-            byte[] buffer = new byte[1024];
-            int bIndex = 0;
-            for (int i = segmentCount * 1024; i < fileBytes.size(); i++)
-            {
-                buffer[bIndex] = fileBytes.get(i);
-                bIndex++;
-            }
-            byte[] finalBuffer = cipher.doFinal(buffer);
-            for (int a = 0; a < 1024; a++)
-            {
-                encryptedFileBytes.add(finalBuffer[a]);
-            }
+            byte[] encryptedBytes = cipher.doFinal(fileBytesArray);
 
-            byte[] encryptedFileBytesArray = new byte[encryptedFileBytes.size()];
-            for (int i = 0; i < encryptedFileBytesArray.length; i++)
-            {
-                encryptedFileBytesArray[i] = encryptedFileBytes.get(i);
-            }
-
-            outputStream.write(encryptedFileBytesArray);
-            System.out.print("\nEncrypted Bytes have been stored in " + encryptedFilePath);
+            outputStream.write(encryptedBytes);
+            System.out.println("Encrypted Bytes have been stored in " + encryptedFilePath + "\n");
             
+            keyOutputStream.close();
+            ivOutputStream.close();
+            outputStream.close();
+            inputStream.close();
         }
         catch (Exception ex)
         {
@@ -124,10 +72,57 @@ public class CryptMachine {
         }
 
         return encryptedFile;
-    } 
+    }
+
+    public static File decryptFile(String filePath, Cipher cipher, SecretKey s_key, IvParameterSpec IV)
+    {
+        File inputFile = new File(filePath);
+        String decryptedFilePath = "NetCry_D-" + filePath.substring(9);
+        File decryptedFile = new File(decryptedFilePath);
+        ArrayList<Byte> fileBytes = new ArrayList<Byte>();
+        System.out.println("NETCRYPT will now decrypt " + filePath);
+
+        try 
+        {
+            FileOutputStream outputStream = new FileOutputStream(decryptedFile);
+            FileInputStream inputStream = new FileInputStream(inputFile);
+
+            cipher.init(Cipher.DECRYPT_MODE, s_key, IV);
+
+            int curByte;
+            while ((curByte = inputStream.read()) != -1)
+            {
+                fileBytes.add((byte) curByte);
+            }
+
+            byte[] fileBytesArray = new byte[fileBytes.size()];
+
+            System.out.println(fileBytes.size() + " bytes are being processed for decryption");
+
+            for (int i = 0; i < fileBytesArray.length; i++)
+            {
+                fileBytesArray[i] = fileBytes.get(i);
+            }
+
+            byte[] decryptedBytes = cipher.doFinal(fileBytesArray);
+
+            outputStream.write(decryptedBytes);
+            System.out.println("Decrypted Bytes have been stored in " + decryptedFilePath + "\n");
+
+            outputStream.close();
+            inputStream.close();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+
+        return decryptedFile;
+
+    }
 
 
-    private SecretKey generateKey(int keySize) throws NoSuchAlgorithmException 
+    public static SecretKey generateKey(int keySize, SecureRandom r) throws NoSuchAlgorithmException 
     {
         byte[] newSeed = r.generateSeed(32);
         r.setSeed(newSeed);
@@ -137,20 +132,72 @@ public class CryptMachine {
 
         keyGen.init(keySize, sRandom);
 
-        s_key = keyGen.generateKey();
+        SecretKey s_key = keyGen.generateKey();
 
         return s_key;
     }
 
-    private IvParameterSpec generateIV() throws NoSuchAlgorithmException
+    public static IvParameterSpec generateIV(SecureRandom r) throws NoSuchAlgorithmException
     {
         byte[] newSeed = r.generateSeed(16);
         r.setSeed(newSeed);
 
         byte[] byteIV = new byte[16];
+
         r.nextBytes(byteIV);
-        IV = new IvParameterSpec(byteIV);
+
+        IvParameterSpec IV = new IvParameterSpec(byteIV);
         return IV;
     }
 
 }
+
+
+
+
+// // Segment Size is 1024
+            // int segmentCount = fileBytes.size() / 1024;
+            // int lastSegSize = fileBytes.size() % 1024;
+
+            // System.out.println("\nNETCRYPT has found "+ fileBytes.size() + " bytes\nWhich will be divided into " + segmentCount + " segments of 1024 bytes\nWith " + lastSegSize + " bytes left in the final segment");
+
+            // // Encrypt each segment of the file and add it to the encryptedByteArrayList
+            // for (int i = 0; i < segmentCount; i++)
+            // {
+            //     byte[] buffer = new byte[1024];
+            //     int byteOffset = i * 1024;
+
+            //     int bIndex = 0;
+            //     for (int j = byteOffset; j < (byteOffset + 1024); j++)
+            //     {
+            //         buffer[bIndex] = fileBytes.get(j);
+            //         bIndex++; 
+            //     }
+
+            //     byte[] encryptedBuffer = cipher.update(buffer);
+
+            //     for (int a = 0; a < 1024; a++)
+            //      {
+            //          encryptedFileBytes.add(encryptedBuffer[a]);
+            //      }
+            // }
+
+            // //Encrypt final section of the data
+            // byte[] buffer = new byte[1024];
+            // int bIndex = 0;
+            // for (int i = segmentCount * 1024; i < fileBytes.size(); i++)
+            // {
+            //     buffer[bIndex] = fileBytes.get(i);
+            //     bIndex++;
+            // }
+            // byte[] finalBuffer = cipher.doFinal(buffer);
+            // for (int a = 0; a < 1024; a++)
+            // {
+            //     encryptedFileBytes.add(finalBuffer[a]);
+            // }
+
+            // byte[] encryptedFileBytesArray = new byte[encryptedFileBytes.size()];
+            // for (int i = 0; i < encryptedFileBytesArray.length; i++)
+            // {
+            //     encryptedFileBytesArray[i] = encryptedFileBytes.get(i);
+            // }
