@@ -1,5 +1,6 @@
 import java.io.File;
 import java.io.FileOutputStream;
+import java.net.Socket;
 import java.security.SecureRandom;
 import java.util.HashMap;
 
@@ -75,6 +76,9 @@ public class NetCryptCmd {
                 encryptedFile = Crypto.encryptFile(inputFileBytes, cipher, r, s_key, IV, fileName);
 
                 byte[] encryptedFileBytes = Crypto.readFile(encryptedFile.getPath());
+                byte[] encryptedFileWithSigBytes = new byte[encryptedFileBytes.length + digitalSignature.length];
+
+
 
                 decryptedFile = Crypto.decryptFile(encryptedFileBytes, cipher, s_key, IV, encryptedFile.getPath());
             }
@@ -86,6 +90,18 @@ public class NetCryptCmd {
         else
         {
             System.err.print("Invalid options were placed in the first arguement");
+        }
+
+        Socket clientSocket = Network.createSocket("0.0.0.0", 50015, "CLIENT");
+
+        if (clientSocket == null) {System.exit(-1);}
+
+        try {
+            clientSocket.close();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
         }
 
     }
