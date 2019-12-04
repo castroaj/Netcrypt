@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -62,6 +63,34 @@ public class Crypto {
             e.printStackTrace();
         }
         return decryptedFile;
+    }
+
+    public static byte[] createMessageDigest(byte[] fileBytes, Cipher c, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
+    {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(fileBytes);
+            return digest.digest();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        return null;
+
+    }
+
+    public static byte[] createDigitalSignature(byte[] digest, Cipher c, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
+    {
+        try {
+            c.init(Cipher.ENCRYPT_MODE, s_key, IV, r);
+            return c.doFinal(digest);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        return null;
     }
 
 

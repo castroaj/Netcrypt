@@ -67,6 +67,11 @@ public class NetCryptCmd {
 
                 byte[] inputFileBytes = Crypto.readFile(fileName);
 
+                int originalFileLen = inputFileBytes.length;
+
+                byte[] messageDigest = Crypto.createMessageDigest(inputFileBytes, cipher, r, s_key, IV);
+                byte[] digitalSignature = Crypto.createDigitalSignature(messageDigest, cipher, r, s_key, IV);
+
                 encryptedFile = Crypto.encryptFile(inputFileBytes, cipher, r, s_key, IV, fileName);
 
                 byte[] encryptedFileBytes = Crypto.readFile(encryptedFile.getPath());
