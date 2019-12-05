@@ -14,7 +14,25 @@ public class Network {
         catch (Exception e)
         {
             e.printStackTrace();
+            System.exit(-1);
         }
         return socket;
+    }
+
+
+    public static ServerSocket createServerSocket(int port, String user)
+    {
+        ServerSocket server = null;
+        try
+        {
+            server = new ServerSocket(port);
+            System.out.println("Server started at Port #: " + port);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+        return server;
     }
 }

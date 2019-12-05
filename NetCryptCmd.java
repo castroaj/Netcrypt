@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.FileOutputStream;
 import java.net.Socket;
+import java.net.ServerSocket;
 import java.security.SecureRandom;
 import java.util.HashMap;
 
@@ -18,7 +19,7 @@ public class NetCryptCmd {
         }
         else if (isServer)
         {
-            //startServer(args)
+            startServer(args);
         }
         else
         {
@@ -40,6 +41,19 @@ public class NetCryptCmd {
         File decryptedFile;
 
         parsedArgs = parseArgs(args);
+
+        Socket clientSocket = Network.createSocket("127.0.0.1", 50015, "CLIENT");
+
+        if (clientSocket == null) {System.exit(-1);}
+
+        try {
+            clientSocket.close();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            System.exit(-1);
+        }
 
         if (parsedArgs.get("valid"))
         {
@@ -91,20 +105,18 @@ public class NetCryptCmd {
         {
             System.err.print("Invalid options were placed in the first arguement");
         }
-
-        Socket clientSocket = Network.createSocket("0.0.0.0", 50015, "CLIENT");
-
-        if (clientSocket == null) {System.exit(-1);}
-
-        try {
-            clientSocket.close();
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-
     }
+
+    public void startServer(String[] args)
+    {
+        ServerSocket servSocket = Network.createServerSocket(50015, "Server");
+
+        while (true)
+        {
+            
+        }
+    }
+
 
     private HashMap<String, Boolean> parseArgs(String[] args)
     {
