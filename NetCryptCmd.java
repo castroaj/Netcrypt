@@ -45,7 +45,7 @@ public class NetCryptCmd {
 
         parsedArgs = parseArgs(args);
 
-        Socket clientSocket = Network.createSocket("127.0.0.1", 50015, "CLIENT");
+        Socket clientSocket = Network.createSocket("134.126.141.185", 50015, "CLIENT");
 
         if (clientSocket == null) {System.exit(-1);}
 
@@ -103,9 +103,9 @@ public class NetCryptCmd {
 
                 out.writeInt(inputFileBytes.length);
                 out.write(inputFileBytes);
-                out.close();
+                //out.close();
 
-                wait();
+                //wait();
 
                 clientSocket.close();
 
