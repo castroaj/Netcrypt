@@ -144,7 +144,7 @@ public class Crypto {
 
         byte[] fileBytesArray = new byte[fileBytes.size()];
 
-        System.out.println(fileBytes.size() + " bytes are being processed for encryption");
+        System.out.println(fileBytes.size() + " bytes are being processed");
 
         for (int i = 0; i < fileBytesArray.length; i++)
         {

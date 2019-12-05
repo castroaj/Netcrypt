@@ -1,7 +1,10 @@
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.net.Socket;
 import java.net.ServerSocket;
+import java.io.DataOutputStream;
 import java.security.SecureRandom;
 import java.util.HashMap;
 
@@ -46,14 +49,6 @@ public class NetCryptCmd {
 
         if (clientSocket == null) {System.exit(-1);}
 
-        try {
-            clientSocket.close();
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-            System.exit(-1);
-        }
 
         if (parsedArgs.get("valid"))
         {
@@ -82,23 +77,43 @@ public class NetCryptCmd {
 
                 byte[] inputFileBytes = Crypto.readFile(fileName);
 
-                int originalFileLen = inputFileBytes.length;
-
                 byte[] messageDigest = Crypto.createMessageDigest(inputFileBytes, cipher, r, s_key, IV);
                 byte[] digitalSignature = Crypto.createDigitalSignature(messageDigest, cipher, r, s_key, IV);
 
-                encryptedFile = Crypto.encryptFile(inputFileBytes, cipher, r, s_key, IV, fileName);
+                byte[] fileWithSigBytes = new byte[inputFileBytes.length + digitalSignature.length];
+
+                for (int i = 0; i < inputFileBytes.length; i++)
+                {
+                    fileWithSigBytes[i] = inputFileBytes[i];
+                }
+                int j = 0;
+                for (int i = inputFileBytes.length; i < fileWithSigBytes.length; i++)
+                {
+                    fileWithSigBytes[i] = digitalSignature[j];
+                    j++;
+                }
+
+                encryptedFile = Crypto.encryptFile(fileWithSigBytes, cipher, r, s_key, IV, fileName);
 
                 byte[] encryptedFileBytes = Crypto.readFile(encryptedFile.getPath());
-                byte[] encryptedFileWithSigBytes = new byte[encryptedFileBytes.length + digitalSignature.length];
-
-
-
+                
                 decryptedFile = Crypto.decryptFile(encryptedFileBytes, cipher, s_key, IV, encryptedFile.getPath());
+
+                DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
+
+                out.writeInt(inputFileBytes.length);
+                out.write(inputFileBytes);
+                out.close();
+
+                wait();
+
+                clientSocket.close();
+
             }
             catch (Exception e)
             {
                 e.printStackTrace();
+                System.exit(-1);
             }
         }
         else
@@ -111,9 +126,25 @@ public class NetCryptCmd {
     {
         ServerSocket servSocket = Network.createServerSocket(50015, "Server");
 
-        while (true)
+        try 
         {
-            
+            Socket s = servSocket.accept();
+            DataInputStream in = new DataInputStream(s.getInputStream());
+
+            int length = in.readInt();
+            if (length > 0)
+            {
+                byte[] file = new byte[length];
+                int x = in.read(file);
+                for (int i = 0; i < file.length; i++)
+                {
+                    System.out.print(file[i] + " ");
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
         }
     }
 
