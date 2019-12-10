@@ -1,37 +1,11 @@
-## Welcome to GitHub Pages
+Welcome to the Netcrypt README:
 
-You can use the [editor on GitHub](https://github.com/castroaj/Netcrypt/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
+12/1/19 - Netcrypt is currently under development in its early stages. It is currently planned to be a command line tool for secure network transmission of data. It will use RSA for key exchange over a socket connection to pass AES symmetric encryption keys. It will then send encrypted data over the connection and decrypt on the client side. 
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+12/2/19 - NetCrypt has local symmetric encryption and decryption functioning. Plan is to setup socket connection within the next few commits.
 
-### Markdown
+12/4/19 - Socket connection is setup and working. Planning to implement RSA for key exchange and SHA-256 for authentication.
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+12/9/19 - RSA implemented for symmetric key exchange. SHA-256 implemented for authentication. Digest is calculated and attached at the end of file, then encrypted. This provides valid digital signature. Encrypted file is being transmitted across socket.
 
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/castroaj/Netcrypt/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+12/10/19 - Digest is locally computed on server side after decrypting file. Everything seems to be working for small files. Planning on streamlining the output and adding error checking for misuse. 
