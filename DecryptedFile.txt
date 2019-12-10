@@ -879,4 +879,4 @@ unsigned MSG5_receive( int fd , myKey_t *Ks , Nonce_t *fNb )
 
 	return decryptedMsg5Len;
 }
- ªc!aΐ‹θª+5ΫΦ’h2†4σƒΉHΚΐ™³ήϋ-(t—ζ’\Ξ…ε”ΰB¨•
+)α’|]g€Τ]ά³γώ_‹Mu+VΑƒ&"΅1

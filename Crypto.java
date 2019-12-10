@@ -1,14 +1,7 @@
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
+
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.ArrayList;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -16,53 +9,35 @@ import javax.crypto.spec.IvParameterSpec;
 
 public class Crypto {
 
-    public static File encryptFile(byte[] fileBytesArray, Cipher cipher, SecureRandom r, SecretKey s_key, IvParameterSpec IV, String filePath)
+    public static byte[] encryptBytes(byte[] fileBytesArray, Cipher cipher, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
     {
-        String encryptedFilePath = "NetCry_E-" + filePath;
-        File encryptedFile = new File(encryptedFilePath);
-        System.out.println("\nNETCRYPT will now encrypt " + filePath);
-
+        byte[] encryptedBytes = null;
         try 
         {
-            FileOutputStream outputStream = new FileOutputStream(encryptedFile);
             cipher.init(Cipher.ENCRYPT_MODE, s_key, IV, r);
-            byte[] encryptedBytes = cipher.doFinal(fileBytesArray);
-
-            outputStream.write(encryptedBytes);
-            System.out.println("Encrypted Bytes have been stored in " + encryptedFilePath + "\n");
-            
-            outputStream.close();
+            encryptedBytes = cipher.doFinal(fileBytesArray);
         }
         catch (Exception ex)
         {
             ex.printStackTrace();
         }
 
-        return encryptedFile;
+        return encryptedBytes;
     }
 
-    public static File decryptFile(byte[] fileBytesArray, Cipher cipher, SecretKey s_key, IvParameterSpec IV, String filePath)
+    public static byte[] decryptBytes(byte[] fileBytesArray, Cipher cipher, SecretKey s_key, IvParameterSpec IV)
     {
-        String decryptedFilePath = "NetCry_D-" + filePath.substring(9);
-        File decryptedFile = new File(decryptedFilePath);
-        System.out.println("NETCRYPT will now decrypt " + filePath);
-
+        byte[] decryptedBytes = null;
         try 
         {
-            FileOutputStream outputStream = new FileOutputStream(decryptedFile);
             cipher.init(Cipher.DECRYPT_MODE, s_key, IV);
-            byte[] decryptedBytes = cipher.doFinal(fileBytesArray);
-
-            outputStream.write(decryptedBytes);
-            System.out.println("Decrypted Bytes have been stored in " + decryptedFilePath + "\n");
-
-            outputStream.close();
+            decryptedBytes = cipher.doFinal(fileBytesArray);
         }
         catch (Exception e)
         {
             e.printStackTrace();
         }
-        return decryptedFile;
+        return decryptedBytes;
     }
 
     public static byte[] createMessageDigest(byte[] fileBytes, Cipher c, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
@@ -108,54 +83,10 @@ public class Crypto {
         return IV;
     }
 
-    public static byte[] readFile (String fileName)
-    {
-        
-        ArrayList<Byte> fileBytes = new ArrayList<Byte>();
-
-        try {
-            int curByte;
-            FileInputStream inputStream = new FileInputStream(new File(fileName));
-            
-            while ((curByte = inputStream.read()) != -1)
-            {
-                fileBytes.add((byte) curByte);
-            }
-            inputStream.close();
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-
-        byte[] fileBytesArray = new byte[fileBytes.size()];
-
-        System.out.println(fileBytes.size() + " bytes are being processed");
-
-        for (int i = 0; i < fileBytesArray.length; i++)
-        {
-            fileBytesArray[i] = fileBytes.get(i);
-        }
-
-        return fileBytesArray;
-    }
+    
 
 }
 
-
-
-    // public static byte[] createDigitalSignature(byte[] digest, Cipher c, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
-    // {
-    //     try {
-    //         c.init(Cipher.ENCRYPT_MODE, s_key, IV, r);
-    //         return c.doFinal(digest);
-    //     }
-    //     catch (Exception e)
-    //     {
-    //         e.printStackTrace();
-    //     }
-    //     return null;
-    // }
 
 
 // // Segment Size is 1024

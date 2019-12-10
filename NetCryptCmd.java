@@ -11,6 +11,7 @@ import java.util.HashMap;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 import javafx.scene.chart.PieChart.Data;
 
@@ -44,8 +45,6 @@ public class NetCryptCmd {
         SecureRandom r;
         SecretKey s_key;
         IvParameterSpec IV;
-        File encryptedFile;
-        File decryptedFile;
 
         parsedArgs = parseArgs(args);
 
@@ -78,15 +77,6 @@ public class NetCryptCmd {
                 System.out.println();
                 System.out.println("N E T C R Y P T   C L I E N T   S T A R T E D:");
                 System.out.println("=================================");
-
-                byte[] inputFileBytes = Crypto.readFile(fileName);
-                byte[] messageDigest = Crypto.createMessageDigest(inputFileBytes, cipher, r, s_key, IV);
-
-                byte[] inputFileWithDigest = Utilities.combineArrays(inputFileBytes, messageDigest);
-
-                encryptedFile = Crypto.encryptFile(inputFileWithDigest, cipher, r, s_key, IV, fileName);
-
-                byte[] encryptedFileBytes = Crypto.readFile(encryptedFile.getPath());
                 
                 //decryptedFile = Crypto.decryptFile(encryptedFileBytes, cipher, s_key, IV, encryptedFile.getPath());
 
@@ -126,23 +116,29 @@ public class NetCryptCmd {
                 byte[] keyAndIvBytes = Utilities.combineArrays(keyBytes, ivBytes);
                 
                 byte[] lengths = new byte[2];
+
                 lengths[0] = (byte) keyBytes.length;
                 lengths[1] = (byte) ivBytes.length;
 
                 byte[] keyAndIvBytesWithLens = Utilities.combineArrays(lengths, keyAndIvBytes);
 
-                for (int i = 0; i < keyAndIvBytesWithLens.length; i++)
-                {
-                     System.out.print(keyAndIvBytesWithLens[i] + " ");
-                }
-
                 byte[] rsaEncryptedMsg = rsa.encrypt(keyAndIvBytesWithLens);
 
 
-                System.out.println("\nSending encrypted message to server with length: " + rsaEncryptedMsg.length);
+                System.out.println("\nSending RSA encrypted message to server");
                 out.writeInt(rsaEncryptedMsg.length);
                 out.write(rsaEncryptedMsg);
 
+                byte[] inputFileBytes = Utilities.readFile(fileName);
+                byte[] messageDigest = Crypto.createMessageDigest(inputFileBytes, cipher, r, s_key, IV);
+
+                byte[] inputFileWithDigest = Utilities.combineArrays(inputFileBytes, messageDigest);
+
+                byte[] encryptedFileBytes = Crypto.encryptBytes(inputFileWithDigest, cipher, r, s_key, IV);
+
+
+                out.writeInt(encryptedFileBytes.length);
+                out.write(encryptedFileBytes);
 
                 //wait();
 
@@ -172,7 +168,6 @@ public class NetCryptCmd {
 
         try 
         {
-
             Socket recSocket = servSocket.accept();
             DataInputStream in = new DataInputStream(recSocket.getInputStream());
 
@@ -205,20 +200,37 @@ public class NetCryptCmd {
             out.writeInt(publicKeyLen);
             out.write(publicKey);
 
-            int encryptedMsgLen = in.readInt();
-            byte[] encryptedMsg = new byte[encryptedMsgLen];
-            in.read(encryptedMsg);
+            int rsaEncryptedMsgLen = in.readInt();
+            byte[] rsaEncryptedMsg = new byte[rsaEncryptedMsgLen];
+            in.read(rsaEncryptedMsg);
 
-            System.out.println("\n\nReceived encryptedMsg from client: " + encryptedMsgLen);
+            System.out.println("\n\nReceived encryptedMsg from client: " + rsaEncryptedMsgLen);
 
-            byte[] decryptedMsg = rsa.decrypt(encryptedMsg);
+            byte[] rsaDecryptedMsg = rsa.decrypt(rsaEncryptedMsg);
 
-            for (int i = 0; i < decryptedMsg.length; i++)
-            {
-                 System.out.print(decryptedMsg[i] + " ");
-            }
+            int keyLen = rsaDecryptedMsg[0];
+            int ivLen = rsaDecryptedMsg[1];
 
-            
+            byte[] keyBytes = new byte[keyLen];
+            byte[] ivBytes = new byte[ivLen];
+
+            System.arraycopy(rsaDecryptedMsg, 2, keyBytes, 0, keyLen);
+            System.arraycopy(rsaDecryptedMsg, keyLen + 2, ivBytes, 0, ivLen);
+
+            SecretKey s_key = new SecretKeySpec(keyBytes, 0, keyBytes.length, "AES");
+            IvParameterSpec IV = new IvParameterSpec(ivBytes);
+
+            int symEncryptedMsgLen = in.readInt();
+            byte[] symEncryptedMsg = new byte[symEncryptedMsgLen];
+
+            in.read(symEncryptedMsg);
+
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+
+            byte[] decryptedBytes = Crypto.decryptBytes(symEncryptedMsg, cipher, s_key, IV);
+
+            Utilities.writeFile(decryptedBytes, "DecryptedFile.txt");
+
 
             // int length = in.readInt();
             // if (length > 0)
