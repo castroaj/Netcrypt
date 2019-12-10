@@ -29,7 +29,7 @@ public class Network {
         try
         {
             server = new ServerSocket(port);
-            System.out.println("Server started at Port #: " + port);
+            System.out.println("Server started listening at Port #: " + port);
         }
         catch (Exception e)
         {

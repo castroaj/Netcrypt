@@ -83,6 +83,20 @@ public class Crypto {
         return IV;
     }
 
+    public static void printDigest(byte[] messageDigest)
+    {
+        for (int i = 0; i < messageDigest.length; i++)
+        {
+            if (i % 16 == 0 && i != 0)
+            {
+                System.out.println();
+            }
+            System.out.printf("%x ", messageDigest[i]);
+        }
+
+        System.out.println("\n");
+    }
+
     
 
 }

@@ -36,7 +36,7 @@ public class Utilities {
 
         byte[] fileBytesArray = new byte[fileBytes.size()];
 
-        System.out.println(fileBytes.size() + " bytes are being processed");
+        System.out.println("\nINPUT FILE BEING PROCESSED: " +fileName + " - " + fileBytes.size() + " bytes");
 
         for (int i = 0; i < fileBytesArray.length; i++)
         {

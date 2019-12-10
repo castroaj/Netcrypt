@@ -67,4 +67,14 @@ public class RSA {
         return this.n.toByteArray().length;
     }
 
+    public BigInteger getE()
+    {
+        return this.e;
+    }
+
+    public BigInteger getN()
+    {
+        return this.n;
+    }
+
 }

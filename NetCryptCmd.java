@@ -14,8 +14,6 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import jdk.jshell.execution.Util;
-
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 
@@ -49,6 +47,7 @@ public class NetCryptCmd {
         SecureRandom r;
         SecretKey s_key;
         IvParameterSpec IV;
+        int rsaBitLength = 2048;
 
         parsedArgs = parseArgs(args);
 
@@ -69,12 +68,13 @@ public class NetCryptCmd {
 
                 System.out.println();
                 System.out.println("N E T C R Y P T   C L I E N T   S T A R T E D:");
-                System.out.println("=================================");
+                System.out.println("==============================================");
                 
                 DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
 
-                System.out.println("Sending Sync Message to NetCryptServer Application\n");
-                out.writeInt(2048);
+                System.out.println("Sending Sync Message to Server\n");
+                System.out.println("Waiting for response from Server...");
+                out.writeInt(rsaBitLength);
 
                 DataInputStream in = new DataInputStream(clientSocket.getInputStream());
 
@@ -84,10 +84,7 @@ public class NetCryptCmd {
                 byte[] publicKey = new byte[publicKeyLen];
                 in.read(publicKey);
 
-                System.out.println("Receieved encryption Key length from server: "+ eLen);
-                System.out.println("Receieved prime length from server: "+ nLen);
-                System.out.println("Receieved Public Key length from server: "+ publicKeyLen);
-                System.out.println("Receieved Public Key from server");
+                System.out.println("Receieved public RSA Key from server:");
                 
                 byte[] eBytes = new byte[eLen];
                 byte[] nBytes = new byte[nLen];
@@ -97,6 +94,9 @@ public class NetCryptCmd {
 
                 BigInteger e = new BigInteger(eBytes);
                 BigInteger n = new BigInteger(nBytes);
+
+                System.out.println("\nRSA public Encryption key: ("+ e.bitLength() +" bits)\n" + e.toString());
+                System.out.println("\nRSA prime: ("+ n.bitLength() +" bits)\n" + n.toString());
 
                 RSA rsa = new RSA(e, n);
 
@@ -111,36 +111,44 @@ public class NetCryptCmd {
                 lengthsRSA[1] = (byte) ivBytes.length;
 
                 byte[] keyAndIvBytesWithLens = Utilities.combineArrays(lengthsRSA, keyAndIvBytes);
-
                 byte[] rsaEncryptedMsg = rsa.encrypt(keyAndIvBytesWithLens);
 
-
-                System.out.println("\nSending RSA encrypted message to server");
+                System.out.println("\nPackaging Symmetric Key and Inital Vector into message for server");
+                System.out.println("Encrypting Msg for server with RSA");
+                System.out.println("Sending RSA encrypted message to server");
                 out.writeInt(rsaEncryptedMsg.length);
                 out.write(rsaEncryptedMsg);
 
+                System.out.println("\nPreparing to read INPUTFILE");
+
                 byte[] inputFileBytes = Utilities.readFile(fileName);
+
+
+                System.out.println("\nComputing SHA-256 Digest for INPUTFILE...");
                 byte[] messageDigest = Crypto.createMessageDigest(inputFileBytes);
+
+                System.out.println("\nSHA256 Digest: ("+ messageDigest.length +" bytes)");
+                Crypto.printDigest(messageDigest);
 
                 byte[] inputFileWithDigest = Utilities.combineArrays(inputFileBytes, messageDigest);
 
                 byte[] inputLen = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(inputFileBytes.length).array();
                 byte[] digestLen = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(messageDigest.length).array();
 
-                System.out.println("The file len is: " + inputFileBytes.length);
-
                 byte[] symLens = Utilities.combineArrays(inputLen, digestLen);
 
                 byte[] inputFileWithDigestAndLengths = Utilities.combineArrays(symLens, inputFileWithDigest);
                 byte[] encryptedFileBytes = Crypto.encryptBytes(inputFileWithDigestAndLengths, cipher, r, s_key, IV);
 
-                // for (int i =0; i < inputFileWithDigestAndLengths.length; i++)
-                // {
-                //     System.out.print(inputFileWithDigestAndLengths[i] + " ");
-                // }
+
+                System.out.println("Packaging INPUTFILE with attached digest into message for server");
+                System.out.println("Encrypting Msg for server with AES/CBC/PKCS5Padding");
+                System.out.println("Sending AES encrypted message to server");
 
                 out.writeInt(encryptedFileBytes.length);
                 out.write(encryptedFileBytes);
+
+                System.out.println("\nWaiting for Server to acknowledge file transmission...");
 
                 //wait();
 
@@ -164,9 +172,11 @@ public class NetCryptCmd {
 
         System.out.println();
         System.out.println("N E T C R Y P T    S E R V E R    S T A R T E D:");
-        System.out.println("=================================");
+        System.out.println("================================================");
 
         ServerSocket servSocket = Network.createServerSocket(Integer.parseInt(args[0]), "Server");
+
+        System.out.println("Waiting for request from client...");
 
         try 
         {
@@ -175,14 +185,16 @@ public class NetCryptCmd {
 
             int sync = in.readInt();
 
-            if (sync == 2048 || sync == 1024)
+            if (sync == 2048 || sync == 1024 || sync == 512 || sync == 3072)
             {
-                System.out.println("Recieved sync message from client");
+                System.out.println("\nRecieved sync message from client");
             }
             else
             {
                 System.exit(-1);
             }
+
+            System.out.println("Creating RSA prime and key pair...");
 
             RSA rsa = new RSA(sync);
 
@@ -191,10 +203,9 @@ public class NetCryptCmd {
 
             DataOutputStream out = new DataOutputStream(recSocket.getOutputStream());
 
-            System.out.println("Sending RSA public key to client:");
-            System.out.println("\tencryption key length: " + rsa.getELen());
-            System.out.println("\tprime length: " + rsa.getNLen());
-            System.out.println("\tpublic key length: " + publicKeyLen);
+            System.out.println("\nSending RSA public key to client:");
+            System.out.println("RSA public Encryption key: ("+ rsa.getE().bitLength() +" bits)\n" +rsa.getE().toString());
+            System.out.println("\nRSA prime: ("+ rsa.getN().bitLength() +" bits)\n" + rsa.getN().toString());
 
             out.writeInt(rsa.getELen());
             out.writeInt(rsa.getNLen());
@@ -202,13 +213,17 @@ public class NetCryptCmd {
             out.writeInt(publicKeyLen);
             out.write(publicKey);
 
+            System.out.println("\nWaiting to recieve RSA encrypted Msg from client...");
+
             int rsaEncryptedMsgLen = in.readInt();
             byte[] rsaEncryptedMsg = new byte[rsaEncryptedMsgLen];
             in.read(rsaEncryptedMsg);
 
-            System.out.println("\n\nReceived encryptedMsg from client: " + rsaEncryptedMsgLen);
+            System.out.println("\nReceived RSA encrypted message from client");
 
             byte[] rsaDecryptedMsg = rsa.decrypt(rsaEncryptedMsg);
+
+            System.out.println("Decrypting RSA encrypted message.....");
 
             int keyLen = rsaDecryptedMsg[0];
             int ivLen = rsaDecryptedMsg[1];
@@ -219,17 +234,25 @@ public class NetCryptCmd {
             System.arraycopy(rsaDecryptedMsg, 2, keyBytes, 0, keyLen);
             System.arraycopy(rsaDecryptedMsg, keyLen + 2, ivBytes, 0, ivLen);
 
+            System.out.println("\nAES Symmetric Key and IV have been decrypted");
+
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
             SecretKey s_key = new SecretKeySpec(keyBytes, 0, keyBytes.length, "AES");
             IvParameterSpec IV = new IvParameterSpec(ivBytes);
+
+            System.out.println("Waiting to recieve AES encrypted message from client...");
 
             int symEncryptedMsgLen = in.readInt();
             byte[] symEncryptedMsg = new byte[symEncryptedMsgLen];
 
             in.read(symEncryptedMsg);
 
-            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            System.out.println("Recieved AES encrypted message from client");
+            System.out.println("\nDecrypting AES encrypted message.....");
 
             byte[] symDecryptedBytesWithHeaders = Crypto.decryptBytes(symEncryptedMsg, cipher, s_key, IV);
+
+            System.out.println("INPUTFILE with digest have been decrypted");
 
             int fileLen = 0;
             for (int i = 0; i < 4; i++) {
@@ -250,24 +273,39 @@ public class NetCryptCmd {
             System.arraycopy(symDecryptedBytesWithHeaders, 8, symDecryptedBytes, 0, fileLen);
             System.arraycopy(symDecryptedBytesWithHeaders, (8 + fileLen), digestBytes, 0, digestLen);
 
+            System.out.println("Detaching Digest from INPUTFILE...");
+            System.out.println("\nRecieved SHA-256 Digest: ("+digestBytes.length+" bytes)");
+            Crypto.printDigest(digestBytes);
+
             byte[] locallyComputedDigest = Crypto.createMessageDigest(symDecryptedBytes);
+
+            System.out.println("Locally Computing Digest on recieved file for comparison...");
+            System.out.println("\nLocally computed SHA-256 Digest: ("+locallyComputedDigest.length+" bytes)");
+            Crypto.printDigest(locallyComputedDigest);
+
+            System.out.println("Comparing Digests for authentication...");
+            System.out.print("The SHA-256 Digest is ");
 
             boolean valid = Arrays.equals(locallyComputedDigest, digestBytes);    
 
-            for (int i = 0; i < locallyComputedDigest.length; i++)
+            if (valid)
             {
-                System.out.print(locallyComputedDigest[i]);
+                System.out.println("VALID");
             }
-            System.out.print("\n\n\n\n");
-            for (int i = 0; i < digestBytes.length; i++)
+            else
             {
-                System.out.print(digestBytes[i]);
+                System.out.println("INVALID");
             }
 
-            System.out.println(valid);
-
-            Utilities.writeFile(symDecryptedBytes, "DecryptedFile.txt");
-
+            if (valid)
+            {
+                Utilities.writeFile(symDecryptedBytes, "DecryptedFile.txt");
+            }
+            else
+            {
+                System.out.println("The recieved file is not the same as when it was sent. Discarding the file. Please try Again.");
+                System.exit(-1);
+            }
         }
         catch (Exception e)
         {
