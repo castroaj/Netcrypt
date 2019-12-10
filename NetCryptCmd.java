@@ -7,16 +7,20 @@ import java.net.Socket;
 import java.net.ServerSocket;
 import java.io.DataOutputStream;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import javafx.scene.chart.PieChart.Data;
+import jdk.jshell.execution.Util;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 public class NetCryptCmd {
 
@@ -48,7 +52,7 @@ public class NetCryptCmd {
 
         parsedArgs = parseArgs(args);
 
-        Socket clientSocket = Network.createSocket("127.0.0.1", 50015, "CLIENT");
+        Socket clientSocket = Network.createSocket(args[0], Integer.parseInt(args[1]), "CLIENT");
 
         if (clientSocket == null) {System.exit(-1);}
 
@@ -63,28 +67,14 @@ public class NetCryptCmd {
                 s_key = Crypto.generateKey(128, r);
                 IV = Crypto.generateIV(r);
 
-                // byte[] keyBytes = s_key.getEncoded();
-                // byte[] ivBytes = IV.getIV();
-                // FileOutputStream ivOutputStream = new FileOutputStream(new File("IV.bin"));
-                // FileOutputStream keyOutputStream = new FileOutputStream(new File("key.bin"));
-
-                // ivOutputStream.write(ivBytes);
-                // keyOutputStream.write(keyBytes);
-
-                // keyOutputStream.close();
-                // ivOutputStream.close();
-
                 System.out.println();
                 System.out.println("N E T C R Y P T   C L I E N T   S T A R T E D:");
                 System.out.println("=================================");
                 
-                //decryptedFile = Crypto.decryptFile(encryptedFileBytes, cipher, s_key, IV, encryptedFile.getPath());
-
                 DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
 
                 System.out.println("Sending Sync Message to NetCryptServer Application\n");
                 out.writeInt(2048);
-                //out.close();
 
                 DataInputStream in = new DataInputStream(clientSocket.getInputStream());
 
@@ -115,12 +105,12 @@ public class NetCryptCmd {
 
                 byte[] keyAndIvBytes = Utilities.combineArrays(keyBytes, ivBytes);
                 
-                byte[] lengths = new byte[2];
+                byte[] lengthsRSA = new byte[2];
 
-                lengths[0] = (byte) keyBytes.length;
-                lengths[1] = (byte) ivBytes.length;
+                lengthsRSA[0] = (byte) keyBytes.length;
+                lengthsRSA[1] = (byte) ivBytes.length;
 
-                byte[] keyAndIvBytesWithLens = Utilities.combineArrays(lengths, keyAndIvBytes);
+                byte[] keyAndIvBytesWithLens = Utilities.combineArrays(lengthsRSA, keyAndIvBytes);
 
                 byte[] rsaEncryptedMsg = rsa.encrypt(keyAndIvBytesWithLens);
 
@@ -130,12 +120,24 @@ public class NetCryptCmd {
                 out.write(rsaEncryptedMsg);
 
                 byte[] inputFileBytes = Utilities.readFile(fileName);
-                byte[] messageDigest = Crypto.createMessageDigest(inputFileBytes, cipher, r, s_key, IV);
+                byte[] messageDigest = Crypto.createMessageDigest(inputFileBytes);
 
                 byte[] inputFileWithDigest = Utilities.combineArrays(inputFileBytes, messageDigest);
 
-                byte[] encryptedFileBytes = Crypto.encryptBytes(inputFileWithDigest, cipher, r, s_key, IV);
+                byte[] inputLen = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(inputFileBytes.length).array();
+                byte[] digestLen = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(messageDigest.length).array();
 
+                System.out.println("The file len is: " + inputFileBytes.length);
+
+                byte[] symLens = Utilities.combineArrays(inputLen, digestLen);
+
+                byte[] inputFileWithDigestAndLengths = Utilities.combineArrays(symLens, inputFileWithDigest);
+                byte[] encryptedFileBytes = Crypto.encryptBytes(inputFileWithDigestAndLengths, cipher, r, s_key, IV);
+
+                // for (int i =0; i < inputFileWithDigestAndLengths.length; i++)
+                // {
+                //     System.out.print(inputFileWithDigestAndLengths[i] + " ");
+                // }
 
                 out.writeInt(encryptedFileBytes.length);
                 out.write(encryptedFileBytes);
@@ -164,7 +166,7 @@ public class NetCryptCmd {
         System.out.println("N E T C R Y P T    S E R V E R    S T A R T E D:");
         System.out.println("=================================");
 
-        ServerSocket servSocket = Network.createServerSocket(50015, "Server");
+        ServerSocket servSocket = Network.createServerSocket(Integer.parseInt(args[0]), "Server");
 
         try 
         {
@@ -227,25 +229,50 @@ public class NetCryptCmd {
 
             Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
-            byte[] decryptedBytes = Crypto.decryptBytes(symEncryptedMsg, cipher, s_key, IV);
+            byte[] symDecryptedBytesWithHeaders = Crypto.decryptBytes(symEncryptedMsg, cipher, s_key, IV);
 
-            Utilities.writeFile(decryptedBytes, "DecryptedFile.txt");
+            int fileLen = 0;
+            for (int i = 0; i < 4; i++) {
+                int shift = (4 - 1 - i) * 8;
+                fileLen += (symDecryptedBytesWithHeaders[i] & 0x000000FF) << shift;
+            }
+            int digestLen = 0;
+            int j = 4;
+            for (int i = 0; i < 4; i++) {
+                int shift = (4 - 1 - i) * 8;
+                digestLen += (symDecryptedBytesWithHeaders[j] & 0x000000FF) << shift;
+                j++;
+            }
 
+            byte[] symDecryptedBytes = new byte[fileLen];
+            byte[] digestBytes = new byte[digestLen];
 
-            // int length = in.readInt();
-            // if (length > 0)
-            // {
-            //     byte[] file = new byte[length];
-            //     int x = in.read(file);
-            //     for (int i = 0; i < file.length; i++)
-            //     {
-            //         System.out.print(file[i] + " ");
-            //     }
-            // }
+            System.arraycopy(symDecryptedBytesWithHeaders, 8, symDecryptedBytes, 0, fileLen);
+            System.arraycopy(symDecryptedBytesWithHeaders, (8 + fileLen), digestBytes, 0, digestLen);
+
+            byte[] locallyComputedDigest = Crypto.createMessageDigest(symDecryptedBytes);
+
+            boolean valid = Arrays.equals(locallyComputedDigest, digestBytes);    
+
+            for (int i = 0; i < locallyComputedDigest.length; i++)
+            {
+                System.out.print(locallyComputedDigest[i]);
+            }
+            System.out.print("\n\n\n\n");
+            for (int i = 0; i < digestBytes.length; i++)
+            {
+                System.out.print(digestBytes[i]);
+            }
+
+            System.out.println(valid);
+
+            Utilities.writeFile(symDecryptedBytes, "DecryptedFile.txt");
+
         }
         catch (Exception e)
         {
             e.printStackTrace();
+            System.exit(-1);
         }
     }
 
@@ -255,37 +282,10 @@ public class NetCryptCmd {
         HashMap<String, Boolean> argParse = new HashMap<String, Boolean>();
 
         argParse.put("valid", false);
-        argParse.put("e&a", false);
-        argParse.put("se", false);
 
-        if (args.length == 1)
+        if (args.length == 3)
         {
-            argParse.put("e&A", true);
             argParse.put("valid", true);
-        }
-        else if (args.length == 2)
-        {
-            String params = args[0].toLowerCase();
-            if (params.startsWith("-"))
-            {
-                if (params.contains("e"))
-                {
-                    if (params.contains("a"))
-                    {
-                        argParse.put("e&a", true);
-                        argParse.put("valid", true);
-                    }
-                    else
-                    {
-                        argParse.put("se", true);
-                        argParse.put("valid", true);
-                    }
-                }
-            }
-            else
-            {
-                argParse.put("valid", false);
-            }
         }
 
         return argParse;

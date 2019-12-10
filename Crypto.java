@@ -40,7 +40,7 @@ public class Crypto {
         return decryptedBytes;
     }
 
-    public static byte[] createMessageDigest(byte[] fileBytes, Cipher c, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
+    public static byte[] createMessageDigest(byte[] fileBytes)
     {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
