@@ -60,12 +60,21 @@ public class Crypto {
         byte[] newSeed = r.generateSeed(32);
         r.setSeed(newSeed);
 
+        System.out.println("here");
+
         KeyGenerator keyGen = KeyGenerator.getInstance("AES");
         SecureRandom sRandom = r.getInstanceStrong();
 
+        System.out.println("here");
+
         keyGen.init(keySize, sRandom);
 
+        System.out.println("here");
+
         SecretKey s_key = keyGen.generateKey();
+
+        System.out.println("here");
+
 
         return s_key;
     }

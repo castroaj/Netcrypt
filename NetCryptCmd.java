@@ -40,7 +40,6 @@ public class NetCryptCmd {
 
     public void startClient(String[] args)
     {
-        // Index0 = valid, Index1 = networkRequest
         HashMap<String, Boolean> parsedArgs = new HashMap<String, Boolean>(); 
         String fileName = args[args.length - 1];
         Cipher cipher;
@@ -57,6 +56,8 @@ public class NetCryptCmd {
 
         Socket clientSocket = Network.createSocket(args[0], Integer.parseInt(args[1]), "CLIENT");
 
+        
+
         if (clientSocket == null) {System.exit(-1);}
 
 
@@ -70,7 +71,11 @@ public class NetCryptCmd {
                 s_key = Crypto.generateKey(128, r);
                 IV = Crypto.generateIV(r);
                 
+                System.out.println("Here");
+
                 DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
+
+                System.out.println("Here");
 
                 System.out.println("Sending Sync Message to Server\n");
                 System.out.println("Waiting for response from Server...");
@@ -150,9 +155,22 @@ public class NetCryptCmd {
 
                 System.out.println("\nWaiting for Server to acknowledge file transmission...");
 
-                //wait();
+                boolean validAcknowledgement = in.readBoolean();
+
+                System.out.println("Acknowledgement from server was recieved");
+
+                if (validAcknowledgement)
+                {
+                    System.out.println("SHA-256 digest was validated on serverside. File was successfully transmitted");
+                }
+                else
+                {
+                    System.out.println("SHA-256 digest was NOT validated on serverside. File was discarded");
+                }
 
                 //clientSocket.close();
+                //in.close();
+                //out.close();
                 
             }
             catch (Exception e)
@@ -300,12 +318,22 @@ public class NetCryptCmd {
             if (valid)
             {
                 Utilities.writeFile(symDecryptedBytes, "DecryptedFile.txt");
+                System.out.println("Sending Client acknowledgement that file was recieved successfully and validated");
+                out.writeBoolean(true);
             }
             else
             {
+                System.out.println("Sending Client acknowledgement that file was not validated");
                 System.out.println("The recieved file is not the same as when it was sent. Discarding the file. Please try Again.");
+                out.writeBoolean(false);
                 System.exit(-1);
             }
+
+            //recSocket.close();
+            //servSocket.close();
+            //in.close();
+            //out.close();
+            
         }
         catch (Exception e)
         {
