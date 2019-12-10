@@ -51,6 +51,10 @@ public class NetCryptCmd {
 
         parsedArgs = parseArgs(args);
 
+        System.out.println();
+        System.out.println("N E T C R Y P T   C L I E N T   S T A R T E D:");
+        System.out.println("==============================================");
+
         Socket clientSocket = Network.createSocket(args[0], Integer.parseInt(args[1]), "CLIENT");
 
         if (clientSocket == null) {System.exit(-1);}
@@ -65,10 +69,6 @@ public class NetCryptCmd {
                 r = new SecureRandom();
                 s_key = Crypto.generateKey(128, r);
                 IV = Crypto.generateIV(r);
-
-                System.out.println();
-                System.out.println("N E T C R Y P T   C L I E N T   S T A R T E D:");
-                System.out.println("==============================================");
                 
                 DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
 
