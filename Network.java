@@ -1,22 +1,25 @@
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.net.*;
+import java.net.SocketAddress;
 
 public class Network {
     public static Socket createSocket(String ip, int port, String user)
     {
-        Socket socket = null;
+        Socket clientSocket = null;
         try 
         {
-            socket = new Socket(ip, port);
+            System.out.println("Will try to connected to "+ user +" Socket at IP " + ip + ", and Port #: " + port + "\n");
+            clientSocket = new Socket(ip, port);
             System.out.println("Connected to "+ user +" Socket at IP " + ip + ", and Port #: " + port);
         }
         catch (Exception e)
         {
-            System.out.println("Connection to NetCrypt server could not be established at the following:\nIP: " + ip + "\nPort: " + port);
+            System.out.println("Connection to NetCrypt server could not be established at the following:\nIP: " + ip + "\nPort: " + port+ "\n\n");
+            e.printStackTrace();
             System.exit(-1);
         }
-        return socket;
+        return clientSocket;
     }
 
 

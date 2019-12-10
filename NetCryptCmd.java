@@ -2,6 +2,7 @@ import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.net.Socket;
 import java.net.ServerSocket;
 import java.io.DataOutputStream;
@@ -10,6 +11,9 @@ import java.util.HashMap;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
+
+import javafx.scene.chart.PieChart.Data;
+
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 
@@ -45,7 +49,7 @@ public class NetCryptCmd {
 
         parsedArgs = parseArgs(args);
 
-        Socket clientSocket = Network.createSocket("134.126.141.185", 50015, "CLIENT");
+        Socket clientSocket = Network.createSocket("127.0.0.1", 50015, "CLIENT");
 
         if (clientSocket == null) {System.exit(-1);}
 
@@ -60,55 +64,90 @@ public class NetCryptCmd {
                 s_key = Crypto.generateKey(128, r);
                 IV = Crypto.generateIV(r);
 
-                byte[] keyBytes = s_key.getEncoded();
-                byte[] ivBytes = IV.getIV();
-                FileOutputStream ivOutputStream = new FileOutputStream(new File("IV.bin"));
-                FileOutputStream keyOutputStream = new FileOutputStream(new File("key.bin"));
+                // byte[] keyBytes = s_key.getEncoded();
+                // byte[] ivBytes = IV.getIV();
+                // FileOutputStream ivOutputStream = new FileOutputStream(new File("IV.bin"));
+                // FileOutputStream keyOutputStream = new FileOutputStream(new File("key.bin"));
 
-                ivOutputStream.write(ivBytes);
-                keyOutputStream.write(keyBytes);
+                // ivOutputStream.write(ivBytes);
+                // keyOutputStream.write(keyBytes);
 
-                keyOutputStream.close();
-                ivOutputStream.close();
+                // keyOutputStream.close();
+                // ivOutputStream.close();
 
                 System.out.println();
-                System.out.println("N E T C R Y P T    S T A R T E D:");
+                System.out.println("N E T C R Y P T   C L I E N T   S T A R T E D:");
                 System.out.println("=================================");
 
                 byte[] inputFileBytes = Crypto.readFile(fileName);
-
                 byte[] messageDigest = Crypto.createMessageDigest(inputFileBytes, cipher, r, s_key, IV);
-                byte[] digitalSignature = Crypto.createDigitalSignature(messageDigest, cipher, r, s_key, IV);
 
-                byte[] fileWithSigBytes = new byte[inputFileBytes.length + digitalSignature.length];
+                byte[] inputFileWithDigest = Utilities.combineArrays(inputFileBytes, messageDigest);
 
-                for (int i = 0; i < inputFileBytes.length; i++)
-                {
-                    fileWithSigBytes[i] = inputFileBytes[i];
-                }
-                int j = 0;
-                for (int i = inputFileBytes.length; i < fileWithSigBytes.length; i++)
-                {
-                    fileWithSigBytes[i] = digitalSignature[j];
-                    j++;
-                }
-
-                encryptedFile = Crypto.encryptFile(fileWithSigBytes, cipher, r, s_key, IV, fileName);
+                encryptedFile = Crypto.encryptFile(inputFileWithDigest, cipher, r, s_key, IV, fileName);
 
                 byte[] encryptedFileBytes = Crypto.readFile(encryptedFile.getPath());
                 
-                decryptedFile = Crypto.decryptFile(encryptedFileBytes, cipher, s_key, IV, encryptedFile.getPath());
+                //decryptedFile = Crypto.decryptFile(encryptedFileBytes, cipher, s_key, IV, encryptedFile.getPath());
 
                 DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
 
-                out.writeInt(inputFileBytes.length);
-                out.write(inputFileBytes);
+                System.out.println("Sending Sync Message to NetCryptServer Application\n");
+                out.writeInt(2048);
                 //out.close();
+
+                DataInputStream in = new DataInputStream(clientSocket.getInputStream());
+
+                int eLen = in.readInt();
+                int nLen = in.readInt();
+                int publicKeyLen = in.readInt();
+                byte[] publicKey = new byte[publicKeyLen];
+                in.read(publicKey);
+
+                System.out.println("Receieved encryption Key length from server: "+ eLen);
+                System.out.println("Receieved prime length from server: "+ nLen);
+                System.out.println("Receieved Public Key length from server: "+ publicKeyLen);
+                System.out.println("Receieved Public Key from server");
+                
+                byte[] eBytes = new byte[eLen];
+                byte[] nBytes = new byte[nLen];
+
+                System.arraycopy(publicKey, 0, eBytes, 0, eLen);
+                System.arraycopy(publicKey, eBytes.length, nBytes, 0, nLen);
+
+                BigInteger e = new BigInteger(eBytes);
+                BigInteger n = new BigInteger(nBytes);
+
+                RSA rsa = new RSA(e, n);
+
+                byte[] keyBytes = s_key.getEncoded();
+                byte[] ivBytes = IV.getIV();
+
+                byte[] keyAndIvBytes = Utilities.combineArrays(keyBytes, ivBytes);
+                
+                byte[] lengths = new byte[2];
+                lengths[0] = (byte) keyBytes.length;
+                lengths[1] = (byte) ivBytes.length;
+
+                byte[] keyAndIvBytesWithLens = Utilities.combineArrays(lengths, keyAndIvBytes);
+
+                for (int i = 0; i < keyAndIvBytesWithLens.length; i++)
+                {
+                     System.out.print(keyAndIvBytesWithLens[i] + " ");
+                }
+
+                byte[] rsaEncryptedMsg = rsa.encrypt(keyAndIvBytesWithLens);
+
+
+                System.out.println("\nSending encrypted message to server with length: " + rsaEncryptedMsg.length);
+                out.writeInt(rsaEncryptedMsg.length);
+                out.write(rsaEncryptedMsg);
+
 
                 //wait();
 
-                clientSocket.close();
-
+                //clientSocket.close();
+                
             }
             catch (Exception e)
             {
@@ -124,23 +163,73 @@ public class NetCryptCmd {
 
     public void startServer(String[] args)
     {
+
+        System.out.println();
+        System.out.println("N E T C R Y P T    S E R V E R    S T A R T E D:");
+        System.out.println("=================================");
+
         ServerSocket servSocket = Network.createServerSocket(50015, "Server");
 
         try 
         {
-            Socket s = servSocket.accept();
-            DataInputStream in = new DataInputStream(s.getInputStream());
 
-            int length = in.readInt();
-            if (length > 0)
+            Socket recSocket = servSocket.accept();
+            DataInputStream in = new DataInputStream(recSocket.getInputStream());
+
+            int sync = in.readInt();
+
+            if (sync == 2048 || sync == 1024)
             {
-                byte[] file = new byte[length];
-                int x = in.read(file);
-                for (int i = 0; i < file.length; i++)
-                {
-                    System.out.print(file[i] + " ");
-                }
+                System.out.println("Recieved sync message from client");
             }
+            else
+            {
+                System.exit(-1);
+            }
+
+            RSA rsa = new RSA(sync);
+
+            byte[] publicKey = rsa.getPublicKey();
+            int publicKeyLen = publicKey.length;
+
+            DataOutputStream out = new DataOutputStream(recSocket.getOutputStream());
+
+            System.out.println("Sending RSA public key to client:");
+            System.out.println("\tencryption key length: " + rsa.getELen());
+            System.out.println("\tprime length: " + rsa.getNLen());
+            System.out.println("\tpublic key length: " + publicKeyLen);
+
+            out.writeInt(rsa.getELen());
+            out.writeInt(rsa.getNLen());
+
+            out.writeInt(publicKeyLen);
+            out.write(publicKey);
+
+            int encryptedMsgLen = in.readInt();
+            byte[] encryptedMsg = new byte[encryptedMsgLen];
+            in.read(encryptedMsg);
+
+            System.out.println("\n\nReceived encryptedMsg from client: " + encryptedMsgLen);
+
+            byte[] decryptedMsg = rsa.decrypt(encryptedMsg);
+
+            for (int i = 0; i < decryptedMsg.length; i++)
+            {
+                 System.out.print(decryptedMsg[i] + " ");
+            }
+
+            
+
+            // int length = in.readInt();
+            // if (length > 0)
+            // {
+            //     byte[] file = new byte[length];
+            //     int x = in.read(file);
+            //     for (int i = 0; i < file.length; i++)
+            //     {
+            //         System.out.print(file[i] + " ");
+            //     }
+            // }
         }
         catch (Exception e)
         {

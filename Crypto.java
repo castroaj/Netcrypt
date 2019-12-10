@@ -80,20 +80,6 @@ public class Crypto {
 
     }
 
-    public static byte[] createDigitalSignature(byte[] digest, Cipher c, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
-    {
-        try {
-            c.init(Cipher.ENCRYPT_MODE, s_key, IV, r);
-            return c.doFinal(digest);
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-
     public static SecretKey generateKey(int keySize, SecureRandom r) throws NoSuchAlgorithmException 
     {
         byte[] newSeed = r.generateSeed(32);
@@ -157,6 +143,19 @@ public class Crypto {
 }
 
 
+
+    // public static byte[] createDigitalSignature(byte[] digest, Cipher c, SecureRandom r, SecretKey s_key, IvParameterSpec IV)
+    // {
+    //     try {
+    //         c.init(Cipher.ENCRYPT_MODE, s_key, IV, r);
+    //         return c.doFinal(digest);
+    //     }
+    //     catch (Exception e)
+    //     {
+    //         e.printStackTrace();
+    //     }
+    //     return null;
+    // }
 
 
 // // Segment Size is 1024
