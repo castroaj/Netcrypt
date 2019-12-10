@@ -4,7 +4,7 @@ public class NetCryptClient {
     public static void main(String[] args) {
         if (args.length > 0)
         {
-            NetCryptCmd net = new NetCryptCmd(args, true, false);
+            NetCrypt net = new NetCrypt(args, true, false);
         }
         else
         {

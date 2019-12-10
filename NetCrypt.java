@@ -20,9 +20,9 @@ import javax.crypto.SecretKey;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-public class NetCryptCmd {
+public class NetCrypt {
 
-    public NetCryptCmd(String[] args, boolean isClient, boolean isServer) {
+    public NetCrypt(String[] args, boolean isClient, boolean isServer) {
         if (isClient)
         {
             startClient(args);
@@ -56,8 +56,6 @@ public class NetCryptCmd {
 
         Socket clientSocket = Network.createSocket(args[0], Integer.parseInt(args[1]), "CLIENT");
 
-        
-
         if (clientSocket == null) {System.exit(-1);}
 
 
@@ -71,11 +69,7 @@ public class NetCryptCmd {
                 s_key = Crypto.generateKey(128, r);
                 IV = Crypto.generateIV(r);
                 
-                System.out.println("Here");
-
                 DataOutputStream out = new DataOutputStream(clientSocket.getOutputStream());
-
-                System.out.println("Here");
 
                 System.out.println("Sending Sync Message to Server\n");
                 System.out.println("Waiting for response from Server...");
@@ -161,11 +155,11 @@ public class NetCryptCmd {
 
                 if (validAcknowledgement)
                 {
-                    System.out.println("SHA-256 digest was validated on serverside. File was successfully transmitted");
+                    System.out.println("\nSHA-256 digest was validated on serverside. File was successfully transmitted\n");
                 }
                 else
                 {
-                    System.out.println("SHA-256 digest was NOT validated on serverside. File was discarded");
+                    System.out.println("\nSHA-256 digest was NOT validated on serverside. File was discarded\n");
                 }
 
                 //clientSocket.close();
@@ -308,23 +302,23 @@ public class NetCryptCmd {
 
             if (valid)
             {
-                System.out.println("VALID");
+                System.out.println("VALID\n");
             }
             else
             {
-                System.out.println("INVALID");
+                System.out.println("INVALID\n");
             }
 
             if (valid)
             {
                 Utilities.writeFile(symDecryptedBytes, "DecryptedFile.txt");
-                System.out.println("Sending Client acknowledgement that file was recieved successfully and validated");
+                System.out.println("Sending Client acknowledgement that file was recieved successfully and validated\n");
                 out.writeBoolean(true);
             }
             else
             {
-                System.out.println("Sending Client acknowledgement that file was not validated");
-                System.out.println("The recieved file is not the same as when it was sent. Discarding the file. Please try Again.");
+                System.out.println("\nSending Client acknowledgement that file was not validated");
+                System.out.println("The recieved file is not the same as when it was sent. Discarding the file. Please try Again\n");
                 out.writeBoolean(false);
                 System.exit(-1);
             }

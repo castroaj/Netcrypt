@@ -1,7 +1,4 @@
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.net.*;
-import java.net.SocketAddress;
 
 public class Network {
     public static Socket createSocket(String ip, int port, String user)

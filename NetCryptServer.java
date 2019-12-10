@@ -3,7 +3,7 @@ public class NetCryptServer {
     public static void main(String[] args) {
         if (args.length == 1)
         {
-            NetCryptCmd net = new NetCryptCmd(args, false, true);
+            NetCrypt net = new NetCrypt(args, false, true);
         }
         else
         {
