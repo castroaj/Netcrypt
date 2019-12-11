@@ -1,3 +1,6 @@
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -7,6 +10,7 @@ import java.net.Socket;
 import java.net.ServerSocket;
 import java.io.DataOutputStream;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
@@ -147,6 +151,21 @@ public class NetCrypt {
                 out.writeInt(encryptedFileBytes.length);
                 out.write(encryptedFileBytes);
 
+                // InputStream inStream = new ByteArrayInputStream(encryptedFileBytes);
+                // BufferedInputStream buffIn = new BufferedInputStream(inStream);
+                // BufferedOutputStream buffOut = new BufferedOutputStream(clientSocket.getOutputStream());
+
+                // byte[] buffer = new byte[1024];
+                // int len = 0;
+                // int index = 0;
+                // while ((len = buffIn.read(buffer)) > 0)
+                // {
+                //     buffOut.write(buffer, 0, len);
+                //     System.out.println(index);
+                //     index += len;
+                // }
+                
+
                 System.out.println("\nWaiting for Server to acknowledge file transmission...");
 
                 boolean validAcknowledgement = in.readBoolean();
@@ -255,14 +274,31 @@ public class NetCrypt {
             System.out.println("Waiting to recieve AES encrypted message from client...");
 
             int symEncryptedMsgLen = in.readInt();
-            byte[] symEncryptedMsg = new byte[symEncryptedMsgLen];
+            byte[] recievedBytes = new byte[symEncryptedMsgLen];
 
-            in.read(symEncryptedMsg);
+            in.read(recievedBytes);
+
+            // BufferedInputStream buffIn = new BufferedInputStream(recSocket.getInputStream());
+            
+            // byte[] recievedBytes = new byte[symEncryptedMsgLen];
+
+            // byte[] buffer = new byte[1024];
+            // int len;
+            // int index = 0;
+            // while ((len = buffIn.read(buffer)) > 0)
+            // {
+            //     System.arraycopy(buffer, 0, recievedBytes, index, len);
+            //     System.out.println(len);
+            //     index += len;
+            // }
+
+            // buffIn.close();
+            // System.out.flush();
 
             System.out.println("Recieved AES encrypted message from client");
             System.out.println("\nDecrypting AES encrypted message.....");
 
-            byte[] symDecryptedBytesWithHeaders = Crypto.decryptBytes(symEncryptedMsg, cipher, s_key, IV);
+            byte[] symDecryptedBytesWithHeaders = Crypto.decryptBytes(recievedBytes, cipher, s_key, IV);
 
             System.out.println("INPUTFILE with digest have been decrypted");
 
