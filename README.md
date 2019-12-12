@@ -9,3 +9,5 @@ Welcome to the Netcrypt README:
 12/9/19 - RSA implemented for symmetric key exchange. SHA-256 implemented for authentication. Digest is calculated and attached at the end of file, then encrypted. This provides valid digital signature. Encrypted file is being transmitted across socket.
 
 12/10/19 - Digest is locally computed on server side after decrypting file. Everything seems to be working for small files. Planning on streamlining the output and adding error checking for misuse. 
+
+12/11/19 - Error handling is getting fixed. Output is nearly finalized. Large files are not able to be sent accross the socket currently because of buffering issue with transmission. Thinking about refactoring the DataOutputStream into a BufferedOutputStream.
