@@ -13,7 +13,6 @@ public class Network {
         catch (Exception e)
         {
             System.out.println("Connection to NetCrypt server could not be established at the following:\nIP: " + ip + "\nPort: " + port+ "\n\n");
-            e.printStackTrace();
             System.exit(-1);
         }
         return clientSocket;

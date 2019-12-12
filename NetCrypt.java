@@ -2,24 +2,23 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
+
 import java.math.BigInteger;
+
 import java.net.Socket;
 import java.net.ServerSocket;
+
 import java.io.DataOutputStream;
+
 import java.security.SecureRandom;
-import java.util.ArrayList;
+
 import java.util.Arrays;
 import java.util.HashMap;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-
 import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -181,9 +180,9 @@ public class NetCrypt {
                     System.out.println("\nSHA-256 digest was NOT validated on serverside. File was discarded\n");
                 }
 
-                //clientSocket.close();
-                //in.close();
-                //out.close();
+                clientSocket.close();
+                in.close();
+                out.close();
                 
             }
             catch (Exception e)
@@ -359,10 +358,10 @@ public class NetCrypt {
                 System.exit(-1);
             }
 
-            //recSocket.close();
-            //servSocket.close();
-            //in.close();
-            //out.close();
+            recSocket.close();
+            servSocket.close();
+            in.close();
+            out.close();
             
         }
         catch (Exception e)

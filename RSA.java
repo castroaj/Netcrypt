@@ -15,13 +15,13 @@ public class RSA {
     public RSA (int bitLen){
         sr = new SecureRandom();
         this.bitLen = bitLen;
-        p = BigInteger.probablePrime(bitLen, sr);
-        q = BigInteger.probablePrime(bitLen, sr);
+        p = BigInteger.probablePrime(this.bitLen, sr);
+        q = BigInteger.probablePrime(this.bitLen, sr);
         n = p.multiply(q);
         z = p.subtract(BigInteger.ONE).multiply(q.subtract(BigInteger.ONE));
 
         // Select a value for e that is less than z, and has a gcd of one with z
-        e = BigInteger.probablePrime(bitLen - 2, sr);
+        e = BigInteger.probablePrime(this.bitLen - 2, sr);
         while (z.gcd(e).compareTo(BigInteger.ONE) > 0 && e.compareTo(z) < 0)
         {
             e.add(BigInteger.ONE);
