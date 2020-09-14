@@ -1,881 +1,959 @@
-/*----------------------------------------------------------------------------
-My Cryptographic Library
-
-FILE:   myCrypto.c
-
-Written By:  1- Alex Castro
-             2- Garrett Christian
-----------------------------------------------------------------------------*/
-
-#include "myCrypto.h"
-#include <inttypes.h>
-
-//***********************************************************************
-// pLAB-01
-//***********************************************************************
-
-void handleErrors( char *msg)
-{
-    fprintf( stderr , "%s\n" , msg ) ;
-    ERR_print_errors_fp(stderr);
-    exit(-1);
-}
-
-#define MAX_BYTES_READ 1008
-#define MAX_CIPHER_LEN 1024
-
-//-----------------------------------------------------------------------------
-// Encrypt the plaint text stored at 'pPlainText' into the 
-// caller-allocated memory at 'pCipherText'
-// Caller must allocate sufficient memory for the cipher text
-// Returns size of the cipher text in bytes
-
-// For the following Encryption/Decryption, 
-// use a 256-bit key and AES in CBC mode (with a 128-bit IV)
-// Ensure the (key,IV) being used match the specified algorithm
-
-unsigned encrypt( uint8_t *pPlainText, unsigned plainText_len, 
-             uint8_t *key, uint8_t *iv, uint8_t *pCipherText )
-{
-	int status ;
-	unsigned len=0 , encryptedLen=0 ;
-
-	/* Create and initialise the context */
-	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new() ;
-	if( ! ctx )
-		handleErrors("encrypt: failed to creat CTX");
-
-	// Initialise the encryption operation.
-	status = EVP_EncryptInit_ex( ctx, ALGORITHM(), NULL, key, iv ) ;
-	if( status != 1 )
-		handleErrors("encrypt: failed to EncryptInit_ex");
-
-	// Call EncryptUpdate as many times as needed (e.g. inside a loop)
-	// to perform regular encryption
-	status = EVP_EncryptUpdate(ctx, pCipherText, &len, pPlainText, plainText_len) ;
-	if( status != 1 )
-		handleErrors("encrypt: failed to EncryptUpdate");
-	encryptedLen += len;
-
-	// If additional ciphertext may still be generated,
-	// the pCipherText pointer must be first advanced forward
-	pCipherText += len ;
-
-	// Finalize the encryption.
-	status = EVP_EncryptFinal_ex( ctx, pCipherText , &len ) ;
-	if( status != 1 )
-		handleErrors("encrypt: failed to EncryptFinal_ex");
-	encryptedLen += len; // len could be 0 if no additional cipher text was generated
-
-	/* Clean up */
-	EVP_CIPHER_CTX_free(ctx);
-
-	return encryptedLen ;
-
-}
-
-//-----------------------------------------------------------------------------
-// Decrypt the cipher text stored at 'pCipherText' into the 
-// caller-allocated memory at 'pDecryptedText'
-// Caller must allocate sufficient memory for the decrypted text
-// Returns size of the decrypted text in bytes
-
-unsigned decrypt( uint8_t *pCipherText, unsigned cipherText_len, 
-                  uint8_t *key, uint8_t *iv, uint8_t *pDecryptedText)
-{
-
-    int status ;
-	unsigned len=0 , decryptedLen=0 ;
-
-	/* Create and initialise the context */
-	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new() ;
-	if( ! ctx )
-		handleErrors("decrypt: failed to creat CTX");
-
-	// Initialise the decryption operation.
-	status = EVP_DecryptInit_ex( ctx, ALGORITHM(), NULL, key, iv ) ;
-	if( status != 1 )
-		handleErrors("decrypt: failed to DecryptInit_ex");
-
-	// Call DecryptUpdate as many times as needed (e.g. inside a loop)
-	// to perform regular decryption
-	status = EVP_DecryptUpdate( ctx, pDecryptedText, &len, pCipherText, cipherText_len) ;
-	if( status != 1 )
-		handleErrors("decrypt: failed to DecryptUpdate");
-	decryptedLen += len;
-
-	// If additionl decrypted text may still be generated,
-	// the pDecryptedText pointer must be first advanced forward
-	pDecryptedText += len ;
-
-	// Finalize the decryption.
-	status = EVP_DecryptFinal_ex( ctx, pDecryptedText , &len ) ;
-	if( status != 1 )
-		handleErrors("decrypt: failed to DecryptFinal_ex");
-	decryptedLen += len;
-
-	/* Clean up */
-	EVP_CIPHER_CTX_free(ctx);
-
-	return decryptedLen;
-
-}
-
-//***********************************************************************
-// PA-01
-//***************************handleErrors********************************************
-
-int encryptFile( int fd_in, int fd_out, unsigned char *key, unsigned char *iv )
-{
-
-    int status, cipherLen ;
-    int retRead = 1;
-	int lenEnc =0 ;
-    uint8_t pPlainText[MAX_BYTES_READ] , pCipherText[MAX_CIPHER_LEN] ;
-
-	/* Create and initialise the context */
-	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new() ;
-	if( ! ctx )
-		handleErrors("encrypt: failed to creat CTX");
-
-	// Initialise the encryption operation.
-	status = EVP_EncryptInit_ex( ctx, EVP_aes_256_cbc(), NULL, key, iv ) ;
-	if( status != 1 )
-		handleErrors("encrypt: failed to EncryptInit_ex");
-
-    while( retRead != 0) {
-        retRead = read(fd_in, pPlainText, MAX_BYTES_READ);
-
-	    status = EVP_EncryptUpdate(ctx, pCipherText, &cipherLen, pPlainText, retRead) ;
-        //status = EncryptUpdate_EVP(ctx, pCipherText, &len, pPlainText, plainText_len) ;
-
-	    if( status != 1 )
-	    	handleErrors("encrypt: failed to EncryptUpdate");
-
-        write(fd_out, pCipherText, cipherLen);
-        lenEnc += cipherLen;
-    }
-
-	// Finalize the encryption.
-	//status = EVP_EncryptFinal_ex( ctx, pCipherText , &len ) ;
-    status = EVP_EncryptFinal_ex( ctx, pCipherText , &cipherLen ) ;
-	if( status != 1 )
-		handleErrors("encrypt: failed to EncryptFinal_ex");
-    write(fd_out, pCipherText, cipherLen);
-    lenEnc += cipherLen;
-
-	/* Clean up */
-	EVP_CIPHER_CTX_free(ctx);
-    
-    return lenEnc;
-
-}
-
-int decryptFile( int fd_in, int fd_out, unsigned char *key, unsigned char *iv )
-{
-
-    int status, cipherLen;
-    int retRead = 1;
-	int lenDec = 0;
-    uint8_t pCipherText[MAX_CIPHER_LEN] , pPlainText[MAX_BYTES_READ] ;
-
-    /* Create and initialise the context */
-	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new() ;
-	if( ! ctx )
-		handleErrors("decrypt: failed to creat CTX");
-
-	// Initialise the encryption operation.
-	status = EVP_DecryptInit_ex( ctx, EVP_aes_256_cbc(), NULL, key, iv ) ;
-	if( status != 1 )
-		handleErrors("decrypt: failed to DecryptInit_ex");
-
-    while( retRead != 0) {
-		retRead = read(fd_in, pCipherText, MAX_CIPHER_LEN);
-
-	    status = EVP_DecryptUpdate(ctx, pPlainText, &cipherLen, pCipherText, retRead) ;
-
-	    if( status != 1 )
-	    	handleErrors("decrypt: failed to DecryptUpdate");
-
-        write(fd_out, pPlainText, cipherLen);
-		lenDec += cipherLen;
-    }
-
-    status = EVP_DecryptFinal_ex( ctx, pCipherText , &cipherLen ) ;
-	if( status != 1 )
-		handleErrors("encrypt: failed to EncryptFinal_ex");
-    write(fd_out, pCipherText, cipherLen);
-	lenDec += cipherLen;
-
-	/* Clean up */
-	EVP_CIPHER_CTX_free(ctx);
-
-	return lenDec;
-
-}
-
-//***********************************************************************
-// pLAB-02
-//***********************************************************************
-
-RSA *getRSAfromFile(char * filename, int keyType)
-{
-    RSA * rsa;
-	FILE *pem ;
-
-	// open the binary file whose name if 'filename' for reading 
-	if (!filename) {
-       	fprintf( stderr , "Null filename my crypto\n");
-       	exit(-1) ;
-	}
-
-    pem = fopen(filename , "r" );
-    if( !pem )
-    {
-       	fprintf( stderr , "Could not open pem file\n");
-       	exit(-1) ;
-    }
-	
-    // Create a new RSA object using RSA_new() ;
-	rsa = RSA_new();
-
-	if (keyType == 1) {
-    	// To read a public RSA key, use PEM_read_RSA_PUBKEY()
-		PEM_read_RSA_PUBKEY(pem, &rsa, NULL, NULL);
-	} else if (keyType == 2) {
-    	// To read a private RSA key, use PEM_read_RSAPrivateKey()
-		PEM_read_RSAPrivateKey(pem, &rsa, NULL, NULL);
-	}
-    else
-    {
-        printf("Invalid key type, key type given was %d", keyType);
-        exit(-1);
-    }
-
-    // close the binary file 'filename'
-	fclose(pem);
-
-    return rsa;
-}
-
-//***********************************************************************
-// PA-02
-//***********************************************************************
-
-size_t fileDigest( int fd_in, int fd_out, uint8_t *digest)
-{
-    int status, digestLen;
-    int retRead = 1;
-    uint8_t plainText[1024];
-
-    /* Create and initialise the context */
-	EVP_MD_CTX *mdCtx = EVP_MD_CTX_new();
-	if ( ! mdCtx )
-		handleErrors("digest: failed to create CTX");
-
-	// Initialise the digest operation.
-	status = EVP_DigestInit( mdCtx, EVP_sha256() );
-	if( status != 1 )
-		handleErrors("digest: failed to DigestInit");
-
-    while( retRead > 0 ) {
-
-        retRead = read(fd_in, plainText, 1024);
-        
-        if ( retRead < 0 ) break;
-
-	    status = EVP_DigestUpdate(mdCtx, plainText, retRead);
-
-	    if( status != 1 )
-	    	handleErrors("digest: failed to EncryptUpdate");
-
-        
-        if ( fd_out > 0)
-        {           
-            write(fd_out, plainText, retRead);
-        }
-    }
-
-	// Finalize the digest
-    status = EVP_DigestFinal( mdCtx, digest, &digestLen ) ;
-	if( status != 1 )
-		handleErrors("digest: failed to EncryptFinal_ex");
-
-    return digestLen;
-}
-
-//***********************************************************************
-// PA-03
-//***********************************************************************
-
-// Sends the #of bytes , followed by the bytes themselves of a BIGNUM’s value to file descriptor fd_out
-// Returns 1 on success, 0 on failure
-int BN_write_fd( const BIGNUM *bn, int fd_out)
-{
-    int bnSize = BN_num_bytes(bn);
-
-    if ( write(fd_out, &bnSize, sizeof(int)) < 0)
-    {
-        return 0;    
-    }
-
-	char buff [bnSize];
-	BN_bn2bin(bn, buff);
-
-    if ( write(fd_out, buff, bnSize) < 0 ) 
-    {
-        return 0;    
-    }    
-
-    return 1;
-}
-
-// Read the #of bytes , then the bytes themselves of a BIGNUM’s value from file descriptor fd_in
-// Returns: a newly‐created BIGNUM, which should be freed later by the caller
-// NULL on failure
-BIGNUM * BN_read_fd( int fd_in )
-{
-    BIGNUM *ret = BN_new();
-    int bnSize;
-
-    if ( read(fd_in, &bnSize, sizeof(int)) <= 0)
-    {
-        return NULL;    
-    }
-
-    unsigned char *bnDump = malloc( bnSize ) ;
-
-    if ( bnDump == NULL )
-	{
-        return NULL;
-	}
-
-    if ( read(fd_in, bnDump, bnSize) <= 0 )
-    {
-        free( bnDump );
-        return NULL;    
-	}
-
-    BN_bin2bn(bnDump, bnSize, ret) ;   // get the binary value in Big Endian
-    free( bnDump );
-
-    return ret;
-}
-
-// Returns a newly‐created random BIGNUM such that: 1 < BN’s value < (p‐1)
-BIGNUM * BN_myRandom( const BIGNUM *p )
-{
-    BIGNUM *tempRand = BN_new();
-    BIGNUM *temp2Rand = BN_new();
-	BIGNUM *subP = BN_new();
-    BIGNUM *rand = BN_new();
-    BIGNUM *one = BN_new();
-    BN_CTX *ctx = BN_CTX_new();
-
-    BN_dec2bn(&one, "1");   
-    BN_rand_range(tempRand, p);    
-    BN_sub(subP, p, one);  
-    BN_mod(temp2Rand, tempRand, subP, ctx);
-    BN_add(rand, temp2Rand, one);
-
-	BN_clear_free( tempRand );
-    BN_clear_free( temp2Rand );
-	BN_clear_free( one );
-	BN_CTX_free( ctx );
-    return rand;
-}
-
-// Use the prime 'q', the primitive root 'gen', and the private 'x'
-// to compute the Elgamal signature (r,s) on the 'len'‐byte long 'digest'
-void elgamalSign( const uint8_t *digest , int len ,const BIGNUM *q , const BIGNUM *gen , const BIGNUM *x ,BIGNUM *r , BIGNUM *s , BN_CTX *ctx)
-{
-	BIGNUM *k = BN_new();
-	BIGNUM *inverseK = BN_new();
-	BIGNUM *rem = BN_new();
-	BIGNUM *subQ = BN_new();
-	BIGNUM *one = BN_new();
-	BIGNUM *xTimesR = BN_new();
-	BIGNUM *ma = BN_new();
-	BIGNUM *maSubXR = BN_new();
-	ctx = BN_CTX_new();
-
-	// Init 1
-	BN_dec2bn(&one, "1");
-
-	// Create q-1
-	BN_sub(subQ, q, one);
-
-	do {
-		// Generate random K and calculate r
-		k = BN_myRandom(q);
-
-		BN_gcd(rem, k, subQ, ctx);
-
-	} while ( BN_is_one(rem) == 0 );
-
-	BN_mod_exp(r, gen, k, q, ctx);
-
-	// Calculate inverse k
-	inverseK = BN_mod_inverse(NULL, k, subQ, ctx);
-
-	// Multiplication of x and r
-	BN_mul(xTimesR, x, r, ctx);
-
-	// Convert digest to big num
-	BN_bin2bn(digest, 32, ma);
-
-	BN_sub(maSubXR, ma, xTimesR);
-
-	BN_mod_mul(s, inverseK, maSubXR, subQ, ctx);
-
-	// Subtract xTimesR from digest
-	BN_clear_free( k );
-    BN_clear_free( inverseK );
-	BN_clear_free( subQ );
-	BN_clear_free( one );
-	BN_clear_free( xTimesR );
-	BN_clear_free( maSubXR );
-	BN_clear_free( ma );
-	BN_CTX_free( ctx );
-}
-
-// Use the prime 'q', the primitive root 'gen', and the public 'y'
-// to validate the Elgamal signature (r,s) on the 'len'‐byte long 'digest'
-// Return 1 if valid, 0 otherswise
-int elgamalValidate( const uint8_t *digest , int len ,const BIGNUM *q , const BIGNUM *gen , const BIGNUM *y ,BIGNUM *r , BIGNUM *s , BN_CTX *ctx )
-{
-	BIGNUM *one = BN_new();
-	BIGNUM *subQ = BN_new();
-	BIGNUM *mb = BN_new();
-	BIGNUM *v1 = BN_new();
-	BIGNUM *v2 = BN_new();
-	BIGNUM *yRaise = BN_new();
-	BIGNUM *rRaise = BN_new();
-
-	// Init 1
-	BN_dec2bn(&one, "1");
-
-	// Create q-1
-	BN_sub(subQ, q, one);
-
-	if ( -1 != BN_cmp(one, r) && -1 != BN_cmp(r, subQ) )
-	{
-		BN_clear_free( rRaise );
-   		BN_clear_free( yRaise );
-		BN_clear_free( subQ );
-		BN_clear_free( one );
-		BN_clear_free( v1 );
-		BN_clear_free( v2 );
-		BN_clear_free( mb );
-		BN_CTX_free( ctx );
-		return 0;
-	}
-
-	// Convert digest to big num
-	BN_bin2bn(digest, 32, mb);
-
-	BN_mod_exp(v1, gen, mb, q, ctx);
-
-	BN_mod_exp(yRaise, y, r, q, ctx);
-
-	BN_mod_exp(rRaise, r, s, q, ctx);
-
-	BN_mod_mul(v2, yRaise, rRaise, q, ctx);
-
-	if ( 0 == BN_cmp(v1, v2))
-	{
-		BN_clear_free( rRaise );
-   		BN_clear_free( yRaise );
-		BN_clear_free( subQ );
-		BN_clear_free( one );
-		BN_clear_free( v1 );
-		BN_clear_free( v2 );
-		BN_clear_free( mb );
-		BN_CTX_free( ctx );
-		return 1;
-	}
-	else
-	{
-		BN_clear_free( rRaise );
-   		BN_clear_free( yRaise );
-		BN_clear_free( subQ );
-		BN_clear_free( one );
-		BN_clear_free( v1 );
-		BN_clear_free( v2 );
-		BN_clear_free( mb );
-		BN_CTX_free( ctx );
-		return 0;
-	}
-}	
-
-//***********************************************************************
-// PA-04
-//***********************************************************************
-
-unsigned MSG1_new( uint8_t **msg1 , const char *IDa , const char *IDb , const Nonce_t *Na )
-{
-
-    unsigned lenA = strlen(IDa) + 1;
-    unsigned lenB = strlen(IDb) + 1;
-    unsigned lenNa = sizeof(Nonce_t);
-	unsigned msgSize = lenA + lenB + lenNa + ( 3 * sizeof(unsigned));
-
-	char *p = malloc(msgSize);
-	*msg1 = p;
-
-	unsigned *lenptr = (unsigned *) p;
-	*lenptr = lenA;
-	p += sizeof(unsigned);
-
-	memcpy(p, IDa, lenA);
-	p += lenA;
-
-	lenptr = (unsigned *) p;
-	*lenptr = lenB;
-	p += sizeof(unsigned);
-
-	memcpy(p, IDb, lenB);
-	p += lenB;
-
-	lenptr = (unsigned *) p;
-	*lenptr = lenNa;
-	p += sizeof(unsigned);
-
-	memcpy(p, Na, lenNa);
-
-	return msgSize;
-}
-
-unsigned MSG1_receive( int fd , char **IDa , char **IDb , Nonce_t *Na )
-{
-	unsigned msgSize;
-    unsigned lenA;
-    unsigned lenB;
-    unsigned lenNa;
-
-	read(fd, &msgSize, sizeof(unsigned));
-    
-    read(fd, &lenA, sizeof(unsigned));
-    *IDa = malloc(lenA);
-    read(fd, *IDa, lenA);
-   
-    read(fd, &lenB, sizeof(unsigned));
-    *IDb = malloc(lenB);
-    read(fd, *IDb, lenB);
-    
-    read(fd, &lenNa, sizeof(unsigned));
-    read(fd, Na, lenNa);
-    
-	return msgSize;
-}
-
-unsigned MSG2_new( uint8_t **msg2 , myKey_t *Ka , myKey_t *Kb , const myKey_t *Ks , const char *IDa , const char *IDb , Nonce_t *Na ) 
-{
-    unsigned lenKs = sizeof(myKey_t);
-    unsigned lenA = strlen(IDa) + 1;
-	unsigned innerMsgSize = lenKs + lenA + ( 2 * sizeof(unsigned));
-
-	uint8_t* innerP = malloc(innerMsgSize);
-	uint8_t* innerPStart = innerP;
-
-	unsigned *innerLenptr = (unsigned *) innerP;
-	*innerLenptr = lenKs;
-	innerP += sizeof(unsigned);
-
-	memcpy(innerP, Ks, lenKs);
-	innerP += lenKs;
-
-    innerLenptr = (unsigned *) innerP;
-	*innerLenptr = lenA;
-	innerP += sizeof(unsigned);
-
-	memcpy(innerP, IDa, lenA);
-	innerP += lenA;
-
-	uint8_t encrypted_inner_msg[CIPHER_LEN_MAX];
-
-    unsigned encryptedInnerMsgSize = encrypt( innerPStart, innerMsgSize, Kb->key, Kb->iv , encrypted_inner_msg );
-
-	//********************************************
-	unsigned lenB = strlen(IDb) + 1;
-	unsigned lenNa = sizeof(Nonce_t);
-	unsigned fullMsgSize = lenKs + lenB + lenNa + encryptedInnerMsgSize + (4 * sizeof(unsigned));
-
-	uint8_t* outerP = malloc(fullMsgSize);
-	uint8_t* outerPStart = outerP;
-
-	unsigned *outerLenPtr = (unsigned *) outerP;
-	*outerLenPtr = lenKs;
-	outerP += sizeof(unsigned);
-
-	memcpy(outerP, Ks, lenKs);
-	outerP += lenKs;
-
-	outerLenPtr = (unsigned *) outerP;
-	*outerLenPtr = lenB;
-	outerP += sizeof(unsigned);
-
-	memcpy(outerP, IDb, lenB);
-	outerP += lenB;
-
-	outerLenPtr = (unsigned *) outerP;
-	*outerLenPtr = lenNa;
-	outerP += sizeof(unsigned);
-
-	memcpy(outerP, Na, lenNa);
-	outerP += lenNa;
-
-	outerLenPtr = (unsigned *) outerP;
-	*outerLenPtr = encryptedInnerMsgSize;
-	outerP += sizeof(unsigned);
-
-	memcpy(outerP, encrypted_inner_msg, encryptedInnerMsgSize);
-	outerP += encryptedInnerMsgSize;
-
-	uint8_t encrypted_outer_msg[CIPHER_LEN_MAX];
-
-	unsigned encryptedOuterMsgSize = encrypt( outerPStart, fullMsgSize, Ka->key, Ka->iv , encrypted_outer_msg );
-
-	*msg2 = encrypted_outer_msg;
-
-	return encryptedOuterMsgSize;
-}
-
-
-unsigned MSG2_receive( int fd , myKey_t *Ka , myKey_t **Ks, char **IDb , Nonce_t *Na , unsigned *LenZ , uint8_t **Z ) 
-{
-	unsigned encryptedMsg2Size;
-	unsigned lenKs;
-	unsigned lenB;
-	unsigned lenNa;
-	uint8_t encryptedMsg2[CIPHER_LEN_MAX];
-	uint8_t decryptedOuterMsg[PLAINTEXT_LEN_MAX];
-
-	read(fd, &encryptedMsg2Size, sizeof(unsigned));
-	read(fd, encryptedMsg2, encryptedMsg2Size);
-
-	unsigned decryptedOuterMsgSize = decrypt(encryptedMsg2, encryptedMsg2Size, 
-                  Ka->key, Ka->iv, decryptedOuterMsg);
-
-	uint8_t* decryptedMsg = decryptedOuterMsg;
-	unsigned* lenPtr = (unsigned *) decryptedMsg;
-
-	lenKs = *lenPtr;
-	decryptedMsg += sizeof(unsigned);
-
-	*Ks = malloc(lenKs);
-	memcpy(*Ks, decryptedMsg, lenKs);
-	decryptedMsg += lenKs;
-
-	lenPtr = (unsigned *) decryptedMsg;
-	lenB = *decryptedMsg;
-	decryptedMsg += sizeof(unsigned);
-
-
-	*IDb = malloc(lenB);
-	memcpy(*IDb, decryptedMsg, lenB);
-	decryptedMsg += lenB;
-
-	lenPtr = (unsigned *) decryptedMsg;
-	lenNa = *decryptedMsg;
-	decryptedMsg += sizeof(unsigned);
-
-	Na = malloc(lenNa);
-	memcpy(Na, decryptedMsg, lenNa);
-	decryptedMsg += lenNa;
-
-	lenPtr = (unsigned *) decryptedMsg;
-	*LenZ = *decryptedMsg;
-	decryptedMsg += sizeof(unsigned);
-
-	*Z = malloc(*LenZ);
-	memcpy(*Z, decryptedMsg, *LenZ);
-	decryptedMsg += *LenZ;
-
-	return decryptedOuterMsgSize;
-}
-
-unsigned MSG3_new( uint8_t **msg3, unsigned LenZ , const uint8_t *Z , const Nonce_t*Na2 )
-{
-	unsigned lenNa2 = sizeof(unsigned);
-	unsigned msg3Len = LenZ + lenNa2 + (2 * sizeof(unsigned));
-
-	uint8_t* msgPointer = malloc(msg3Len);
-	
-	*msg3 = msgPointer;
-
-	unsigned* lenPointer = (unsigned *) msgPointer;
-	*lenPointer = LenZ;
-	msgPointer += sizeof(unsigned);
-
-	memcpy(msgPointer, Z, LenZ);
-	msgPointer += LenZ;
-
-	lenPointer = (unsigned *) msgPointer;
-	*lenPointer = lenNa2;
-	msgPointer += sizeof(unsigned);
-
-	memcpy(msgPointer, Na2, lenNa2);
-	msgPointer += lenNa2;
-
-	return msg3Len;
-}
-
-unsigned MSG3_receive( int fd , myKey_t *Kb , myKey_t *Ks , char **IDa , Nonce_t *Na2 )
-{
-	unsigned lenZ;
-	unsigned lenNa2;
-	unsigned lenKs;
-	unsigned lenA;
-	uint8_t Z[CIPHER_LEN_MAX];
-	uint8_t decryptedZ[PLAINTEXT_LEN_MAX];
-
-	// Read LenZ and Z
-	read(fd, &lenZ , sizeof(unsigned));
-	read(fd, Z, lenZ);
-
-	// Decrypt Z
-	unsigned decryptedZLen = decrypt(Z, lenZ, 
-                  Kb->key, Kb->iv, decryptedZ);
-
-	uint8_t* decryptedZPointer = decryptedZ;
-
-	unsigned* lenPtr = (unsigned *) decryptedZPointer;
-
-	lenKs = *lenPtr;
-	decryptedZPointer += sizeof(unsigned);
-
-	memcpy(Ks, decryptedZPointer, lenKs);
-	decryptedZPointer += lenKs;
-
-	lenPtr = (unsigned *) decryptedZPointer;
-	lenA = *lenPtr;
-	decryptedZPointer += sizeof(unsigned);
-
-	*IDa = malloc(lenA);
-	memcpy(*IDa, decryptedZPointer, lenA);
-	decryptedZPointer += lenA;
-
-	// Read NonceLen and Nonce
-	read(fd, &lenNa2, sizeof(unsigned));
-	read(fd, Na2, lenNa2);
-
-	return decryptedZLen;
-}
-
-unsigned MSG4_new( uint8_t **msg4, myKey_t *Ks , Nonce_t *fNa2 , Nonce_t *Nb )
-{
-	unsigned lenfNa2 = sizeof(Nonce_t);
-	unsigned lenNb = sizeof(Nonce_t);
-	unsigned msg4Len = lenfNa2 + lenNb + ( 2 * sizeof(unsigned));
-
-	uint8_t* msg4Ptr = malloc(msg4Len);
-	uint8_t* msg4PtrStart = msg4Ptr;
-
-	unsigned* lenPtr = (unsigned *) msg4Ptr;
-	*lenPtr = lenfNa2;
-	msg4Ptr += sizeof(unsigned);
-
-	memcpy(msg4Ptr, fNa2, lenfNa2);
-	msg4Ptr += lenfNa2;
-
-	lenPtr = (unsigned *) msg4Ptr;
-	*lenPtr = lenNb;	
-	msg4Ptr += sizeof(unsigned);
-
-	memcpy(msg4Ptr, Nb, lenNb);
-	msg4Ptr += lenNb;
-
-	uint8_t msg4Buffer[CIPHER_LEN_MAX];
-
-	unsigned msg4EncryptedLen = encrypt( msg4PtrStart, msg4Len, Ks->key, Ks->iv , msg4Buffer );
-
-	*msg4 = malloc(msg4EncryptedLen);
-
-	memcpy(*msg4, msg4Buffer, msg4EncryptedLen);
-
-	return msg4EncryptedLen;
-}
-
-unsigned MSG4_receive( int fd , myKey_t *Ks , Nonce_t *fNa2 , Nonce_t *Nb )
-{
-	unsigned lenfNa2;
-	unsigned lenNb;
-	unsigned lenMsg4;
-	uint8_t msg4[CIPHER_LEN_MAX];
-	uint8_t decryptedMsg4[PLAINTEXT_LEN_MAX];
-
-	read(fd, &lenMsg4, sizeof(unsigned));
-	read(fd, msg4, lenMsg4);
-
-	unsigned decryptedMsg4Len = decrypt(msg4, lenMsg4, 
-                  Ks->key, Ks->iv, decryptedMsg4);
-
-	uint8_t* decryptedMsg4Ptr = decryptedMsg4;
-
-	unsigned* lenPtr = (unsigned *) decryptedMsg4Ptr;
-	lenfNa2 = *lenPtr;
-	decryptedMsg4Ptr += sizeof(unsigned);
-
-	memcpy(fNa2, decryptedMsg4Ptr, lenfNa2);
-	decryptedMsg4Ptr += lenfNa2;
-
-	lenPtr = (unsigned *) decryptedMsg4Ptr;
-	lenNb = *lenPtr;
-	decryptedMsg4Ptr += sizeof(unsigned);
-
-	memcpy(Nb, decryptedMsg4Ptr, lenNb);
-	decryptedMsg4Ptr += lenNb;
-
-	return decryptedMsg4Len;
-}
-
-unsigned MSG5_new( uint8_t **msg5, myKey_t *Ks ,  Nonce_t *fNb )
-{
-	unsigned lenfNb = sizeof(Nonce_t);
-	unsigned msg5Len = lenfNb + sizeof(unsigned);
-
-	uint8_t* msg5Ptr = malloc(msg5Len);
-	uint8_t* msg5PtrStart = msg5Ptr;
-
-	unsigned* lenPtr = (unsigned *) msg5Ptr;
-	*lenPtr = lenfNb;
-
-	msg5Ptr += sizeof(unsigned);
-
-	memcpy(msg5Ptr, fNb, lenfNb);
-	msg5Ptr += lenfNb;
-
-	uint8_t msg5Buffer[CIPHER_LEN_MAX];
-
-	unsigned msg5EncryptedLen = encrypt( msg5PtrStart, msg5Len, Ks->key, Ks->iv , msg5Buffer );
-
-	*msg5 = msg5Buffer;
-
-	return msg5EncryptedLen;
-}
-
-unsigned MSG5_receive( int fd , myKey_t *Ks , Nonce_t *fNb )
-{
-	unsigned lenfNb;
-	unsigned lenMsg5;
-	uint8_t msg5[CIPHER_LEN_MAX];
-	uint8_t decryptedMsg5[PLAINTEXT_LEN_MAX];
-
-	read(fd, &lenMsg5, sizeof(unsigned));
-	read(fd, msg5, lenMsg5);
-
-	unsigned decryptedMsg5Len = decrypt(msg5, lenMsg5, 
-                  Ks->key, Ks->iv, decryptedMsg5);
-
-	uint8_t* decryptedMsg5Ptr = decryptedMsg5;
-
-	unsigned* lenPtr = (unsigned *) decryptedMsg5Ptr;
-	lenfNb = *lenPtr;
-	decryptedMsg5Ptr += sizeof(unsigned);
-
-	memcpy(fNb, decryptedMsg5Ptr, lenfNb);
-	decryptedMsg5Ptr += lenfNb;
-
-	return decryptedMsg5Len;
-}
+0
+00
+01
+02
+03
+1
+10
+100
+1000
+123
+2
+20
+200
+2000
+2001
+2002
+2003
+2004
+2005
+3
+@
+Admin
+Administration
+CVS
+CYBERDOCS
+CYBERDOCS25
+CYBERDOCS31
+INSTALL_admin
+Log
+Logs
+Pages
+Servlet
+Servlets
+SiteServer
+Sources
+Statistics
+Stats
+W3SVC
+W3SVC1
+W3SVC2
+W3SVC3
+WEB-INF
+_admin
+_pages
+a
+aa
+aaa
+abc
+about
+academic
+access
+accessgranted
+account
+accounting
+action
+actions
+active
+adm
+admin
+admin_
+admin_login
+admin_logon
+administrat
+administration
+administrator
+adminlogin
+adminlogon
+adminsql
+admon
+adsl
+agent
+agents
+alias
+aliases
+all
+alpha
+analog
+analyse
+announcements
+answer
+any
+apache
+api
+app
+applet
+applets
+appliance
+application
+applications
+apps
+archive
+archives
+arrow
+asp
+aspadmin
+assets
+attach
+attachments
+audit
+auth
+auto
+automatic
+b
+back
+back-up
+backdoor
+backend
+backoffice
+backup
+backups
+bak
+bak-up
+bakup
+bank
+banks
+banner
+banners
+base
+basic
+bass
+batch
+bd
+bdata
+bea
+bean
+beans
+beta
+bill
+billing
+bin
+binaries
+biz
+blog
+blow
+board
+boards
+body
+boot
+bot
+bots
+box
+boxes
+broken
+bsd
+bug
+bugs
+build
+builder
+bulk
+buttons
+c
+cache
+cachemgr
+cad
+can
+captcha
+car
+card
+cardinal
+cards
+carpet
+cart
+cas
+cat
+catalog
+catalogs
+catch
+cc
+ccs
+cd
+cdrom
+cert
+certenroll
+certificate
+certificates
+certs
+cfdocs
+cfg
+cgi
+cgi-bin
+cgi-bin/
+cgi-win
+cgibin
+chan
+change
+changepw
+channel
+chart
+chat
+class
+classes
+classic
+classified
+classifieds
+client
+clients
+cluster
+cm
+cmd
+code
+coffee
+coke
+command
+commerce
+commercial
+common
+component
+compose
+composer
+compressed
+comunicator
+con
+config
+configs
+configuration
+configure
+connect
+connections
+console
+constant
+constants
+contact
+contacts
+content
+contents
+control
+controller
+controlpanel
+controls
+corba
+core
+corporate
+count
+counter
+cpanel
+create
+creation
+credit
+creditcards
+cron
+crs
+css
+customer
+customers
+cv
+cvs
+d
+daemon
+dat
+data
+database
+databases
+dav
+db
+dba
+dbase
+dbm
+dbms
+debug
+default
+delete
+deletion
+demo
+demos
+deny
+deploy
+deployment
+design
+details
+dev
+dev60cgi
+devel
+develop
+developement
+developers
+development
+device
+devices
+devs
+diag
+dial
+dig
+dir
+directory
+discovery
+disk
+dispatch
+dispatcher
+dms
+dns
+doc
+docs
+docs41
+docs51
+document
+documents
+down
+download
+downloads
+draft
+dragon
+dratfs
+driver
+dump
+dumpenv
+e
+easy
+ebriefs
+echannel
+ecommerce
+edit
+editor
+element
+elements
+email
+employees
+en
+eng
+engine
+english
+enterprise
+env
+environ
+environment
+error
+errors
+es
+esales
+esp
+established
+esupport
+etc
+event
+events
+example
+examples
+exchange
+exe
+exec
+executable
+executables
+explorer
+export
+external
+extra
+Extranet
+extranet
+fail
+failed
+fcgi-bin
+feedback
+field
+file
+files
+filter
+firewall
+first
+flash
+folder
+foo
+forget
+forgot
+forgotten
+form
+format
+formhandler
+formsend
+formupdate
+fortune
+forum
+forums
+frame
+framework
+ftp
+fun
+function
+functions
+games
+gate
+generic
+gest
+get
+global
+globalnav
+globals
+gone
+gp
+gpapp
+granted
+graphics
+group
+groups
+guest
+guestbook
+guests
+hack
+hacker
+handler
+hanlder
+happening
+head
+header
+headers
+hello
+helloworld
+help
+hidden
+hide
+history
+hits
+home
+homepage
+homes
+homework
+host
+hosts
+htdocs
+htm
+html
+htmls
+ibm
+icons
+idbc
+iis
+images
+img
+import
+inbox
+inc
+include
+includes
+incoming
+incs
+index
+index2
+index_adm
+index_admin
+indexes
+info
+information
+ingres
+ingress
+ini
+init
+input
+install
+installation
+interactive
+internal
+internet
+intranet
+intro
+inventory
+invitation
+invite
+ipp
+ips
+j
+java
+java-sys
+javascript
+jdbc
+job
+join
+jrun
+js
+jsp
+jsps
+jsr
+keep
+kept
+kernel
+key
+lab
+labs
+launch
+launchpage
+ldap
+left
+level
+lib
+libraries
+library
+libs
+link
+links
+linux
+list
+load
+loader
+lock
+lockout
+log
+logfile
+logfiles
+logger
+logging
+login
+logo
+logon
+logout
+logs
+lost%2Bfound
+ls
+magic
+mail
+mailbox
+maillist
+main
+maint
+makefile
+man
+manage
+management
+manager
+manual
+map
+market
+marketing
+master
+mbo
+mdb
+me
+member
+members
+memory
+menu
+message
+messages
+messaging
+meta
+metabase
+mgr
+mine
+minimum
+mirror
+mirrors
+misc
+mkstats
+model
+modem
+module
+modules
+monitor
+mount
+mp3
+mp3s
+mqseries
+mrtg
+ms
+ms-sql
+msql
+mssql
+music
+my
+my-sql
+mysql
+names
+navigation
+ne
+net
+netscape
+netstat
+network
+new
+news
+next
+nl
+nobody
+notes
+novell
+nul
+null
+number
+object
+objects
+odbc
+of
+off
+office
+ogl
+old
+oldie
+on
+online
+open
+openapp
+openfile
+operator
+oracle
+oradata
+order
+orders
+outgoing
+output
+pad
+page
+pages
+pam
+panel
+paper
+papers
+pass
+passes
+passw
+passwd
+passwor
+password
+passwords
+path
+pdf
+perl
+perl5
+personal
+personals
+pgsql
+phone
+php
+phpMyAdmin
+phpmyadmin
+pics
+ping
+pix
+pl
+pls
+plx
+pol
+policy
+poll
+pop
+portal
+portlet
+portlets
+post
+postgres
+power
+press
+preview
+print
+printenv
+priv
+private
+privs
+process
+processform
+prod
+production
+products
+professor
+profile
+program
+project
+proof
+properties
+protect
+protected
+proxy
+ps
+pub
+public
+publish
+publisher
+purchase
+purchases
+put
+pw
+pwd
+python
+query
+queue
+quote
+ramon
+random
+rank
+rcs
+readme
+redir
+redirect
+reference
+references
+reg
+reginternal
+regional
+register
+registered
+release
+remind
+reminder
+remote
+removed
+report
+reports
+requisite
+research
+reseller
+resource
+resources
+responder
+restricted
+retail
+right
+robot
+robotics
+root
+route
+router
+rpc
+rss
+rules
+run
+sales
+sample
+samples
+save
+saved
+schema
+scr
+scratc
+script
+scripts
+sdk
+search
+secret
+secrets
+section
+sections
+secure
+secured
+security
+select
+sell
+send
+sendmail
+sensepost
+sensor
+sent
+server
+server_stats
+servers
+service
+services
+servlet
+servlets
+session
+sessions
+set
+setting
+settings
+setup
+share
+shared
+shell
+shit
+shop
+shopper
+show
+showcode
+shtml
+sign
+signature
+signin
+simple
+single
+site
+sitemap
+sites
+small
+snoop
+soap
+soapdocs
+software
+solaris
+solutions
+somebody
+source
+sources
+spain
+spanish
+sql
+sqladmin
+src
+srchad
+srv
+ssi
+ssl
+staff
+start
+startpage
+stat
+statistic
+statistics
+stats
+status
+stop
+store
+story
+string
+student
+stuff
+style
+stylesheet
+stylesheets
+submit
+submitter
+sun
+super
+support
+supported
+survey
+svc
+svn
+svr
+sw
+sys
+sysadmin
+system
+table
+tag
+tape
+tar
+target
+tech
+temp
+template
+templates
+temporal
+temps
+terminal
+test
+testing
+tests
+text
+texts
+ticket
+tmp
+today
+tool
+toolbar
+tools
+top
+topics
+tour
+tpv
+trace
+traffic
+transactions
+transfer
+transport
+trap
+trash
+tree
+trees
+tutorial
+uddi
+uninstall
+unix
+up
+update
+updates
+upload
+uploader
+uploads
+usage
+user
+users
+usr
+ustats
+util
+utilities
+utility
+utils
+validation
+validatior
+vap
+var
+vb
+vbs
+vbscript
+vbscripts
+vfs
+view
+viewer
+views
+virtual
+visitor
+vpn
+w
+w3
+w3c
+warez
+wdav
+web
+webaccess
+webadmin
+webapp
+webboard
+webcart
+webdata
+webdav
+webdist
+webhits
+weblog
+weblogic
+weblogs
+webmail
+webmaster
+websearch
+website
+webstat
+webstats
+webvpn
+welcome
+wellcome
+whatever
+whatnot
+whois
+will
+win
+windows
+word
+wordpress
+work
+workplace
+workshop
+wp
+wstats
+wusage
+www
+wwwboard
+wwwjoin
+wwwlog
+wwwstats
+xcache
+xfer
+xml
+xmlrpc
+xsl
+xsql
+xyz
+zap
+zip
+zipfiles
+zips
+~adm
+~admin
+~administrator
+~bin
+~ftp
+~guest
+~mail
+~operator
+~root
+~sys
+~sysadm
+~sysadmin
+~test
+~user
+~webmaster
+~www
